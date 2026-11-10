@@ -3,55 +3,57 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6)
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 
-**Press a hotkey, get the answer for the question on your screen.** sonnsonn
-takes a screenshot, asks a vision model, and signals the answer two ways:
-a row of **CapsLock flashes** (A = 1 flash … F = 6) and an optional compact
-popup in the corner.
+**Tekan satu tombol pintas, dapatkan jawaban untuk soal yang ada di layar.**
+sonnsonn mengambil tangkapan layar, mengirimnya ke model AI, lalu memberi tahu
+jawabannya lewat dua cara: **kedipan CapsLock** (A = 1 kedip … F = 6 kedip) dan
+**kotak jawaban** kecil di pojok layar (opsional).
 
-![sonnsonn answering a multiple-choice question](docs/demo.png)
+![sonnsonn menjawab soal pilihan ganda](docs/demo.png)
 
-## What it does
+## Fitur
 
-- **One hotkey** — press **F9**, the primary monitor is captured and sent to
-  the model. Nothing is written to disk.
-- **CapsLock answers** — A–F map to 1–6 flashes, so the answer is readable at a
-  glance without looking at another window. Unlabeled options use their
-  displayed order (top to bottom, then left to right).
-- **Optional popup** — 104 × 58 px by default, in any of five corners, at
-  50–200 % scale. It never takes keyboard focus and closes by itself.
-- **Written answers** — essays and a/b/c subquestions are answered in the same
-  language and saved to `latest-answer.txt`.
-- **Thinking mode** — off / low / high / max reasoning effort (default `high`),
-  which makes arithmetic and multi-step questions noticeably more reliable.
-- **Web grounding** — when a question depends on current facts, sonnsonn checks
-  the DeepSeek Search API and answers from the results.
-- **Bring your own model** — any OpenAI-compatible endpoint that accepts images
-  and JSON mode works.
+- **Satu tombol pintas** — tekan **F9**, layar utama diambil dan dikirim ke
+  model. Tidak ada gambar yang disimpan ke disk.
+- **Jawaban lewat CapsLock** — pilihan A–F dipetakan ke 1–6 kedipan, jadi
+  jawaban bisa dibaca sekilas tanpa berpindah jendela. Pilihan tanpa huruf
+  diurutkan sesuai tampilan: atas ke bawah, lalu kiri ke kanan.
+- **Kotak jawaban opsional** — ukuran default 104 × 58 px, bisa diletakkan di
+  lima posisi sudut, dan diskalakan 50–200 %. Kotak ini tidak pernah merebut
+  fokus keyboard dan menutup sendiri.
+- **Jawaban tertulis** — soal esai dan subpertanyaan a/b/c dijawab dalam bahasa
+  yang sama dan disimpan ke `latest-answer.txt`.
+- **Mode berpikir (thinking)** — tingkat penalaran off / low / high / max
+  (default `high`), yang membuat soal hitungan dan soal bertahap jauh lebih
+  akurat.
+- **Pencarian web** — kalau soal bergantung pada informasi terkini, sonnsonn
+  mengecek DeepSeek Search API lalu menjawab dari hasilnya.
+- **Bisa pakai model sendiri** — endpoint apa pun yang kompatibel dengan
+  OpenAI dan mendukung input gambar serta JSON mode.
 
-## Requirements
+## Kebutuhan
 
 | | |
 |---|---|
-| OS | Windows 10 or 11 (the hotkey and CapsLock control are Windows-only) |
-| Python | 3.10 or newer (only for the source install; the zip still needs Python) |
-| Account | A DeepSeek API key, or any OpenAI-compatible vision endpoint |
+| Sistem operasi | Windows 10 atau 11 (hotkey dan kontrol CapsLock khusus Windows) |
+| Python | 3.10 atau lebih baru (untuk instalasi dari source) |
+| Akun | API key DeepSeek, atau endpoint vision apa pun yang kompatibel OpenAI |
 
-## Quick install (recommended)
+## Instalasi cepat (disarankan)
 
-1. Open **[Releases](https://github.com/Hdiddz/sonn-sonn-display-answer/releases/latest)**
-   and download **`sonnsonn.zip`**.
-2. Extract it into a normal writable folder — for example
-   `C:\Users\<you>\Documents\sonnsonn`. Avoid `C:\Program Files`.
-3. Double-click **`sonnsonn.cmd`**. The first run creates `.venv` and installs
-   the two dependencies (about a minute, needs internet).
-4. In the console menu choose **`[6] API key`** and paste your DeepSeek key
-   (typing is hidden). It is stored in `.env` next to the scripts.
-5. Choose **`[1]`** to start, then press **F9** on any question.
+1. Buka **[Releases](https://github.com/Hdiddz/sonn-sonn-display-answer/releases/latest)**
+   lalu unduh **`sonnsonn.zip`**.
+2. Ekstrak ke folder biasa yang bisa ditulis — misalnya
+   `C:\Users\<nama>\Documents\sonnsonn`. Hindari `C:\Program Files`.
+3. Klik dua kali **`sonnsonn.cmd`**. Saat pertama dijalankan, folder `.venv`
+   dibuat dan dua dependensi dipasang (sekitar satu menit, butuh internet).
+4. Di menu konsol pilih **`[6] API key`** lalu tempel API key DeepSeek Anda
+   (ketikan disembunyikan). Key disimpan di `.env` di samping skrip.
+5. Pilih **`[1]`** untuk menjalankan, lalu tekan **F9** pada soal apa pun.
 
-The monitor keeps running in the background; the console window closes once it
-has started. `stop.cmd` stops it.
+Monitor tetap berjalan di background; jendela konsol menutup sendiri setelah
+monitor aktif. Hentikan dengan `stop.cmd`.
 
-## Manual install from source
+## Instalasi manual dari source
 
 ```powershell
 git clone https://github.com/Hdiddz/sonn-sonn-display-answer.git
@@ -61,25 +63,25 @@ py -3 -m venv .venv
 .\sonnsonn.cmd
 ```
 
-Or configure it by hand: copy `.env.example` to `.env` and fill in your key,
-then run `start.cmd`.
+Atau atur manual: salin `.env.example` menjadi `.env`, isi API key, lalu
+jalankan `start.cmd`.
 
-## Usage
+## Cara pakai
 
-| Action | How |
+| Aksi | Caranya |
 |---|---|
-| Capture and answer | press **F9** |
-| Read a written answer | double-click `open-answer.cmd` |
-| Stop the monitor | double-click `stop.cmd` |
-| Change settings | double-click `sonnsonn.cmd` again (control menu) |
+| Ambil gambar dan minta jawaban | tekan **F9** |
+| Baca jawaban tertulis | klik dua kali `open-answer.cmd` |
+| Hentikan monitor | klik dua kali `stop.cmd` |
+| Ubah pengaturan | klik dua kali `sonnsonn.cmd` lagi (menu kontrol) |
 
-Each capture sends the **entire primary screen** to the API and uses credit.
-Wait for the answer before pressing F9 again; a written answer can take up to
-90 seconds. Holding **Alt** suppresses a capture.
+Setiap capture mengirim **seluruh layar utama** ke API dan memakai kredit.
+Tunggu jawaban muncul sebelum menekan F9 lagi; jawaban esai bisa memakan waktu
+hingga 90 detik. Menahan tombol **Alt** membatalkan capture.
 
-## Settings console
+## Menu pengaturan
 
-Starting the app while it is stopped opens the full menu:
+Menjalankan aplikasi saat monitor belum aktif akan membuka menu lengkap:
 
 ```
   CapsLock Monitor
@@ -99,12 +101,14 @@ Starting the app while it is stopped opens the full menu:
     [8] Exit
 ```
 
-Starting it while already running opens a **control menu** instead: stop the
-monitor, hide/show the box, move it, resize it, or change thinking effort — all
-without restarting.
+Kalau dijalankan saat monitor **sudah aktif**, yang muncul adalah **menu
+kontrol**: menghentikan monitor, menyembunyikan/menampilkan kotak, memindahkan,
+mengubah ukuran, atau mengganti tingkat thinking — semuanya tanpa restart.
 
-Settings live in `.monitor-settings` and are re-read for every answer, which is
-why changes take effect immediately:
+Label menu sengaja tetap bahasa Inggris agar cocok dengan tampilan aplikasi.
+
+Pengaturan disimpan di `.monitor-settings` dan dibaca ulang pada setiap
+jawaban, jadi perubahan langsung berlaku:
 
 ```ini
 popup=on
@@ -113,12 +117,12 @@ scale=100
 thinking=high
 ```
 
-Allowed positions: `bottom-left`, `bottom-right`, `top-left`, `top-right`,
-`center`. Scale: `50`–`200`.
+Posisi yang tersedia: `bottom-left`, `bottom-right`, `top-left`, `top-right`,
+`center`. Skala: `50`–`200`.
 
-## Answer signals
+## Sinyal jawaban
 
-| Letter | CapsLock flashes |
+| Huruf | Kedipan CapsLock |
 |---|---|
 | A | 1 |
 | B | 2 |
@@ -127,19 +131,20 @@ Allowed positions: `bottom-left`, `bottom-right`, `top-left`, `top-right`,
 | E | 5 |
 | F | 6 |
 
-Written answers and "no readable question" use a distinct long/short tone when
-sound is enabled; the default build is silent.
+Jawaban tertulis dan status "tidak ada soal" memakai nada panjang/pendek yang
+berbeda bila suara diaktifkan; build default senyap.
 
-## Models and providers
+## Model dan penyedia
 
-- Default: `deepseek-flash` on `https://api.deepseek.com`.
-- **Thinking** maps to DeepSeek's `thinking: enabled` plus `reasoning_effort`
-  (`low` / `high` / `max`). It raises the reply budget to 8192 tokens because
-  reasoning counts toward the output. Thinking is DeepSeek-only.
-- **Other providers**: set the base URL (menu `[7]`, or `DEEPSEEK_BASE_URL` in
-  `.env`). The endpoint must accept `image_url` content and
-  `response_format: json_object`. Thinking and the search tool are skipped
-  there.
+- Default: `deepseek-flash` di `https://api.deepseek.com`.
+- **Thinking** diterjemahkan ke `thinking: enabled` milik DeepSeek ditambah
+  `reasoning_effort` (`low` / `high` / `max`). Mode ini menaikkan batas balasan
+  menjadi 8192 token karena token penalaran ikut dihitung. Thinking hanya
+  tersedia di DeepSeek.
+- **Penyedia lain**: isi base URL lewat menu `[7]` atau `DEEPSEEK_BASE_URL` di
+  `.env`. Endpoint harus menerima konten `image_url` dan
+  `response_format: json_object`. Thinking dan fitur pencarian dilewati di
+  penyedia lain.
 
 ```ini
 DEEPSEEK_API_KEY=sk-...
@@ -147,68 +152,71 @@ DEEPSEEK_MODEL=deepseek-flash
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
-## Web grounding
+## Pencarian web
 
-When the model decides a question needs current information, sonnsonn calls the
-DeepSeek Search API once, feeds the top results back, and re-answers. Costs one
-search request ($0.75 per 1,000) plus one text-only follow-up. If search fails,
-the first answer is kept. Disable with `DEEPSEEK_SEARCH=off` in `.env`.
+Kalau model menilai soal butuh informasi terkini, sonnsonn memanggil DeepSeek
+Search API sekali, memasukkan hasil teratas, lalu menjawab ulang. Biayanya satu
+permintaan pencarian ($0.75 per 1.000) ditambah satu permintaan teks tambahan.
+Kalau pencarian gagal, jawaban pertama tetap dipakai. Matikan dengan
+`DEEPSEEK_SEARCH=off` di `.env`.
 
-## Troubleshooting
+## Pemecahan masalah
 
-**F9 does nothing.** Start the app from **your own** Explorer window or a normal
-terminal. Processes started by an automation/sandbox context can run at *low
-integrity*, where Windows blocks keyboard reads. `monitor.log` prints the
-integrity level at startup — it must say `integrity medium`. Also try
-**Fn+F9**: on many laptops the function row is in media mode.
+**F9 tidak bereaksi.** Jalankan aplikasi dari **Explorer Anda sendiri** atau
+terminal biasa. Proses yang dijalankan oleh konteks otomasi/sandbox bisa berada
+di *low integrity*, dan di kondisi itu Windows memblokir pembacaan keyboard.
+`monitor.log` mencetak tingkat integrity saat mulai — harus tertulis
+`integrity medium`. Coba juga **Fn+F9**: di banyak laptop baris fungsi berada
+dalam mode media.
 
-**"Monitor exited during startup".** Check `monitor.log` and
-`monitor-error.log` in the project folder. The usual cause is a missing or
-invalid API key.
+**Muncul "Monitor exited during startup".** Periksa `monitor.log` dan
+`monitor-error.log` di folder aplikasi. Penyebab umumnya API key kosong atau
+tidak valid.
 
-**No answer box.** The setting `popup=off` hides it (CapsLock flashes still
-work). Turn it back on from the running control menu, option `[3]`.
+**Kotak jawaban tidak muncul.** Pengaturan `popup=off` menyembunyikannya
+(kedipan CapsLock tetap berjalan). Nyalakan lagi dari menu kontrol, pilihan
+`[3]`.
 
-**HTTP 401 / 402.** 401 is a bad key; 402 means the account is out of balance.
+**HTTP 401 / 402.** 401 berarti key salah; 402 berarti saldo akun habis.
 
-**Wrong answers on math.** Raise thinking to `max` with menu `[5]`.
+**Jawaban hitungan salah.** Naikkan thinking ke `max` lewat menu `[5]`.
 
-## Privacy
+## Privasi
 
-Screenshots are held in memory and posted to the model provider you configured;
-they are never written to disk unless you pass `--save-dir`. The last answer is
-stored in `latest-answer.txt`, and your API key is kept in `.env` (both are
-git-ignored).
+Tangkapan layar hanya disimpan di memori dan dikirim ke penyedia model yang
+Anda atur; tidak pernah ditulis ke disk kecuali Anda memakai `--save-dir`.
+Jawaban terakhir disimpan di `latest-answer.txt`, dan API key disimpan di
+`.env` (keduanya di-ignore oleh Git).
 
-## Responsible use
+## Penggunaan yang bertanggung jawab
 
-sonnsonn is a screen-reading and accessibility helper. Use it only where
-outside assistance is allowed — not in exams, certifications, or assessments
-that forbid it, and not in a way that breaks your provider's terms. You are
-responsible for how you use it and for the answers it produces; AI answers can
-be wrong.
+sonnsonn adalah alat bantu membaca layar dan aksesibilitas. Gunakan hanya di
+tempat yang memperbolehkan bantuan luar — bukan pada ujian, sertifikasi, atau
+asesmen yang melarangnya, dan tidak dengan cara yang melanggar ketentuan
+penyedia API Anda. Anda bertanggung jawab atas cara pemakaian dan atas jawaban
+yang dihasilkan; jawaban AI bisa salah.
 
-## Development
+## Pengembangan
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest test_monitor.py   # 38 tests, no network
-.\.venv\Scripts\python.exe monitor.py --selftest          # quick logic check
+.\.venv\Scripts\python.exe -m unittest test_monitor.py   # 38 tes, tanpa jaringan
+.\.venv\Scripts\python.exe monitor.py --selftest          # cek logika cepat
 ```
 
-`run_tests.py` is the low-level library suite and **toggles the real CapsLock /
-NumLock LEDs** while it runs.
+`run_tests.py` adalah suite library tingkat rendah dan **mengubah LED CapsLock /
+NumLock sungguhan** saat dijalankan.
 
-| File | Purpose |
+| Berkas | Fungsi |
 |---|---|
-| `monitor.py` | hotkey loop, capture, API calls, search, answer signals |
-| `capture_popup.py` | the Win32 popup (position, scale, no-activate) |
-| `control.ps1` | settings and control console behind `sonnsonn.cmd` |
-| `sonnsonn.cmd` / `start.cmd` / `stop.cmd` | launchers |
-| `open-answer.cmd` | opens the last answer |
-| `demo.py` | flashes arbitrary text in Morse on the lock LEDs |
-| `test_monitor.py` | unit tests |
+| `monitor.py` | loop hotkey, capture, panggilan API, pencarian, sinyal jawaban |
+| `capture_popup.py` | kotak jawaban Win32 (posisi, skala, tanpa aktivasi) |
+| `control.ps1` | konsol pengaturan dan kontrol di balik `sonnsonn.cmd` |
+| `sonnsonn.cmd` / `start.cmd` / `stop.cmd` | launcher |
+| `open-answer.cmd` | membuka jawaban terakhir |
+| `demo.py` | mengedipkan teks Morse di LED lock |
+| `test_monitor.py` | unit test |
 
-## License
+## Lisensi
 
-No license has been added yet. Until one is, the code is all rights reserved by
-the author.
+Belum ada lisensi. Sampai lisensi ditambahkan, hak cipta kode dipegang penuh
+oleh penulis.
