@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.log
+monitor.pid
+monitor.stop
+.monitor-settings
+shots/
+latest-answer.txt
+latest-answer.txt.tmp
+*.zip
+docs/*.tmp

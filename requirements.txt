@@ -1,0 +1,2 @@
+capslockmorsecode==0.1.0
+mss==10.2.0
