@@ -7,6 +7,7 @@ actions without touching the mouse or keyboard, which is how it is tested.
 import base64
 import ctypes
 import json
+import threading
 import time
 import urllib.request
 from ctypes import wintypes
@@ -78,6 +79,26 @@ class _INPUTUNION(ctypes.Union):
 
 class _INPUT(ctypes.Structure):
     _fields_ = [("type", wintypes.DWORD), ("u", _INPUTUNION)]
+
+
+def ensure_dpi_aware():
+    """Match GetSystemMetrics/SetCursorPos to the physical pixels mss grabs.
+
+    A DPI-unaware process works in virtualised coordinates: on a 125% display
+    a screenshot pixel would be clicked 1.25x too far. Aware means both sides
+    speak physical pixels.
+    """
+    if getattr(ensure_dpi_aware, "done", False):
+        return
+    user32 = ctypes.windll.user32
+    try:
+        user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))  # PER_MONITOR_AWARE_V2
+    except Exception:
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except Exception:
+            pass
+    ensure_dpi_aware.done = True
 
 
 def screen_size():
@@ -202,152 +223,61 @@ def _post(url, api_key, payload, timeout=120):
         return json.loads(response.read())
 
 
-def confirm_dialog(text, stop):
-    """Ask the user before an action. Returns True to run it.
+DIALOG_TITLE = "sonnsonn - konfirmasi"
+_dialog_counter = [0]
 
-    Enter accepts, Esc cancels, and the dialog closes itself as soon as the
-    stop event (F10) is set, so the agent can always be interrupted.
+
+def confirm_dialog(text, stop):
+    """Ask the user before an action with a native message box.
+
+    Enter (OK) runs the action, Esc (Cancel) skips it. A watchdog closes the
+    box as soon as the stop event (F10) is set, so the agent can always be
+    interrupted. MessageBox is used instead of a hand-built window because it
+    reliably takes keyboard focus even when the monitor runs hidden.
     """
     user32 = ctypes.WinDLL("user32", use_last_error=True)
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
 
-    def bind(library, name, result, *arguments):
-        function = getattr(library, name)
-        function.restype = result
-        function.argtypes = list(arguments)
-        return function
+    message_box = user32.MessageBoxW
+    message_box.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR,
+                            wintypes.UINT]
+    message_box.restype = ctypes.c_int
+    find_window = user32.FindWindowW
+    find_window.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+    find_window.restype = wintypes.HWND
+    post_message = user32.PostMessageW
+    post_message.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM,
+                             wintypes.LPARAM]
+    post_message.restype = wintypes.BOOL
 
-    WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, wintypes.HWND, wintypes.UINT,
-                                 wintypes.WPARAM, wintypes.LPARAM)
-    state = {"result": None}
+    _dialog_counter[0] += 1
+    title = f"{DIALOG_TITLE} #{_dialog_counter[0]}"
 
-    class WNDCLASS(ctypes.Structure):
-        _fields_ = [("style", wintypes.UINT), ("lpfnWndProc", WNDPROC),
-                    ("cbClsExtra", ctypes.c_int), ("cbWndExtra", ctypes.c_int),
-                    ("hInstance", wintypes.HINSTANCE), ("hIcon", wintypes.HICON),
-                    ("hCursor", wintypes.HANDLE), ("hbrBackground", wintypes.HBRUSH),
-                    ("lpszMenuName", wintypes.LPCWSTR),
-                    ("lpszClassName", wintypes.LPCWSTR)]
+    closed = threading.Event()
 
-    register = bind(user32, "RegisterClassW", wintypes.ATOM, ctypes.POINTER(WNDCLASS))
-    create_window = bind(user32, "CreateWindowExW", wintypes.HWND,
-                         wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR,
-                         wintypes.DWORD, ctypes.c_int, ctypes.c_int,
-                         ctypes.c_int, ctypes.c_int, wintypes.HWND,
-                         wintypes.HMENU, wintypes.HINSTANCE, ctypes.c_void_p)
-    def_window = bind(user32, "DefWindowProcW", ctypes.c_ssize_t, wintypes.HWND,
-                      wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
-    show_window = bind(user32, "ShowWindow", wintypes.BOOL, wintypes.HWND, ctypes.c_int)
-    get_client = bind(user32, "GetClientRect", wintypes.BOOL, wintypes.HWND,
-                      ctypes.POINTER(wintypes.RECT))
-    destroy_window = bind(user32, "DestroyWindow", wintypes.BOOL, wintypes.HWND)
-    set_foreground = bind(user32, "SetForegroundWindow", wintypes.BOOL, wintypes.HWND)
-    set_focus = bind(user32, "SetFocus", wintypes.HWND, wintypes.HWND)
-    set_pos = bind(user32, "SetWindowPos", wintypes.BOOL, wintypes.HWND, wintypes.HWND,
-                   ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT)
-    peek_message = bind(user32, "PeekMessageW", wintypes.BOOL,
-                        ctypes.POINTER(wintypes.MSG), wintypes.HWND,
-                        wintypes.UINT, wintypes.UINT, wintypes.UINT)
-    translate = bind(user32, "TranslateMessage", wintypes.BOOL, ctypes.POINTER(wintypes.MSG))
-    dispatch = bind(user32, "DispatchMessageW", ctypes.c_ssize_t, ctypes.POINTER(wintypes.MSG))
-    send_message = bind(user32, "SendMessageW", ctypes.c_ssize_t, wintypes.HWND,
-                        wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
-    post_quit = bind(user32, "PostQuitMessage", None, ctypes.c_int)
-    get_metrics = bind(user32, "GetSystemMetrics", ctypes.c_int, ctypes.c_int)
-    unregister = bind(user32, "UnregisterClassW", wintypes.BOOL, wintypes.LPCWSTR,
-                      wintypes.HINSTANCE)
-    get_module = bind(kernel32, "GetModuleHandleW", wintypes.HMODULE, wintypes.LPCWSTR)
-    create_brush = bind(gdi32, "CreateSolidBrush", wintypes.HBRUSH, wintypes.DWORD)
-    create_font = bind(gdi32, "CreateFontW", wintypes.HFONT,
-                       *([ctypes.c_int] * 5), *([wintypes.DWORD] * 8), wintypes.LPCWSTR)
-    delete_object = bind(gdi32, "DeleteObject", wintypes.BOOL, wintypes.HANDLE)
+    def watchdog():
+        while not closed.is_set() and not stop.is_set():
+            time.sleep(0.1)
+        if stop.is_set() and not closed.is_set():
+            handle = find_window(None, title)
+            if handle:
+                post_message(handle, 0x0010, 0, 0)  # WM_CLOSE
 
-    @WNDPROC
-    def procedure(hwnd, message, wparam, lparam):
-        if message == 0x0100:  # WM_KEYDOWN
-            if wparam == 0x0D:  # Enter
-                state["result"] = True
-                destroy_window(hwnd)
-                return 0
-            if wparam == 0x1B:  # Esc
-                state["result"] = False
-                destroy_window(hwnd)
-                return 0
-            return 0
-        if message == 0x0010:  # WM_CLOSE
-            state["result"] = False
-            destroy_window(hwnd)
-            return 0
-        if message == 0x0002:  # WM_DESTROY
-            post_quit(0)
-            return 0
-        return def_window(hwnd, message, wparam, lparam)
+    thread = threading.Thread(target=watchdog, daemon=True)
+    thread.start()
+    try:
+        flags = 0x00000001 | 0x00000030 | 0x00040000 | 0x00010000
+        answer = message_box(None, text, title, flags)
+    finally:
+        closed.set()
+    return answer == 1  # IDOK
 
-    instance = get_module(None)
-    class_name = f"SonnSonnConfirm_{ctypes.windll.kernel32.GetCurrentProcessId()}"
-    brush = create_brush(0xF5F5F5)
-    definition = WNDCLASS(0, procedure, 0, 0, instance, None, None,
-                          brush, None, class_name)
-    if not register(ctypes.byref(definition)):
-        delete_object(brush)
-        return False
-
-    width, height = 460, 210
-    screen_w = get_metrics(0)
-    screen_h = get_metrics(1)
-    hwnd = create_window(
-        0x00000008 | 0x00000080, class_name, "sonnsonn - konfirmasi",
-        0x80000000 | 0x00C00000 | 0x00080000,
-        (screen_w - width) // 2, (screen_h - height) // 3,
-        width, height, None, None, instance, None)
-    if not hwnd:
-        delete_object(brush)
-        unregister(class_name, instance)
-        return False
-
-    client = wintypes.RECT()
-    get_client(hwnd, ctypes.byref(client))
-    inner_width = client.right - client.left
-    inner_height = client.bottom - client.top
-    font = create_font(-18, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Segoe UI")
-    label = create_window(0, "STATIC", text, 0x40000000 | 0x10000000 | 0x80,
-                          16, 18, inner_width - 32, inner_height - 76,
-                          hwnd, None, instance, None)
-    hint = create_window(0, "STATIC", "Enter = jalankan    Esc = batal",
-                         0x40000000 | 0x10000000, 16, inner_height - 42,
-                         inner_width - 32, 28, hwnd, None, instance, None)
-    send_message(label, 0x0030, font, 1)
-    send_message(hint, 0x0030, font, 1)
-    show_window(hwnd, 5)  # SW_SHOW
-    set_pos(hwnd, wintypes.HWND(-1), 0, 0, 0, 0, 0x0043)  # TOPMOST|NOMOVE|NOSIZE|SHOW
-    set_foreground(hwnd)
-    set_focus(hwnd)
-
-    message = wintypes.MSG()
-    while state["result"] is None:
-        while peek_message(ctypes.byref(message), None, 0, 0, 1):
-            if message.message == 0x0012:  # WM_QUIT
-                state["result"] = False
-                break
-            translate(ctypes.byref(message))
-            dispatch(ctypes.byref(message))
-        if state["result"] is None and stop.is_set():
-            state["result"] = False
-            destroy_window(hwnd)
-            break
-        time.sleep(0.04)
-
-    destroy_window(hwnd)
-    delete_object(font)
-    delete_object(brush)
-    unregister(class_name, instance)
-    return bool(state["result"])
 
 def run(api_key, model, stop, *, mode="confirm", base_url="https://api.deepseek.com",
         max_steps=MAX_STEPS, dry_run=False, image_png=None, log=print,
         confirm=None, capture=None):
     """Drive the desktop until finish, max_steps, or `stop` is set."""
+    ensure_dpi_aware()
     content = [{"type": "text", "text": "Answer the quiz on screen."}]
     first = image_png if image_png is not None else (capture() if capture else None)
     if first:
