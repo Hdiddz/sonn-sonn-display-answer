@@ -343,9 +343,9 @@ while ($true) {
     switch ($choice) {
         '1' { $settings.popup = 'on';  Save-Settings; $start = $true }
         '2' { $settings.popup = 'off'; Save-Settings; $start = $true }
-        '3' { Read-Position }
-        '4' { Read-Scale }
-        '5' { Read-Thinking }
+        '3' { Read-Position; Start-Sleep -Seconds 1 }
+        '4' { Read-Scale; Start-Sleep -Seconds 1 }
+        '5' { Read-Thinking; Start-Sleep -Seconds 1 }
         '6' {
             if ([Console]::IsInputRedirected) {
                 # A hidden prompt reads the console directly and would block on
