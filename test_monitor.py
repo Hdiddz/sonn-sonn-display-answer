@@ -4,13 +4,11 @@ import json
 import os
 from pathlib import Path
 import tempfile
-import threading
 import unittest
 import urllib.error
 from unittest.mock import patch
 
 import monitor
-import agent as agent_module
 
 
 class MonitorTests(unittest.TestCase):
@@ -422,7 +420,7 @@ class MonitorTests(unittest.TestCase):
                                            'position': 'bottom-left',
                                            'scale': '100',
                                            'duration': '5',
-                                           'agent': 'confirm'}), \
+              }), \
                 patch.object(monitor.subprocess, 'Popen') as popen:
             monitor.show_answer_popup(result)
         self.assertIn('--duration-ms=5000', popen.call_args.args[0])
@@ -436,7 +434,7 @@ class MonitorTests(unittest.TestCase):
                                            'position': 'bottom-left',
                                            'scale': '100',
                                            'duration': 'abc',
-                                           'agent': 'confirm'}), \
+              }), \
                 patch.object(monitor.subprocess, 'Popen') as popen:
             monitor.show_answer_popup(result)
         self.assertIn('--duration-ms=2000', popen.call_args.args[0])
@@ -450,7 +448,7 @@ class MonitorTests(unittest.TestCase):
             loaded = monitor.load_settings(settings)
         self.assertEqual(loaded, {'popup': 'off', 'position': 'top-right',
                                   'scale': '150', 'thinking': 'max',
-                                  'duration': '2', 'agent': 'confirm'})
+                                  'duration': '2'})
 
     def test_thinking_defaults_to_high(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -552,85 +550,6 @@ class MonitorTests(unittest.TestCase):
                 self.assertFalse(answer.call_args.kwargs['use_search'])
 
 
-
-class AgentTests(unittest.TestCase):
-    def setUp(self):
-        self.stop = threading.Event()
-
-    def test_click_outside_the_screen_is_refused(self):
-        ok, note = agent_module.perform('click', {'x': -10, 'y': 20},
-                                        mode='auto', stop=self.stop,
-                                        log=lambda message: None)
-        self.assertFalse(ok)
-        self.assertIn('outside the screen', note)
-
-    def test_dry_run_never_touches_the_input_devices(self):
-        with patch.object(agent_module, 'click') as click:
-            ok, note = agent_module.perform('click', {'x': 10, 'y': 20},
-                                            mode='auto', stop=self.stop,
-                                            log=lambda message: None,
-                                            dry_run=True)
-        self.assertTrue(ok)
-        self.assertIn('dry-run', note)
-        click.assert_not_called()
-
-    def test_confirm_mode_cancelled_by_the_user(self):
-        with patch.object(agent_module, 'click') as click:
-            ok, note = agent_module.perform('click', {'x': 10, 'y': 20},
-                                            mode='confirm', stop=self.stop,
-                                            log=lambda message: None,
-                                            confirm=lambda text, stop: False)
-        self.assertFalse(ok)
-        self.assertIn('cancelled', note)
-        click.assert_not_called()
-
-    def test_unknown_action_and_bad_key_are_refused(self):
-        ok, _ = agent_module.perform('rm_rf', {}, mode='auto',
-                                     stop=self.stop, log=lambda m: None)
-        self.assertFalse(ok)
-        ok, _ = agent_module.perform('press_key', {'key': 'f13'},
-                                     mode='auto', stop=self.stop,
-                                     log=lambda m: None)
-        self.assertFalse(ok)
-
-    def test_agent_loop_executes_tool_calls_then_finishes(self):
-        replies = [
-            {"choices": [{"message": {
-                "content": "",
-                "tool_calls": [{"id": "call_1", "function": {
-                    "name": "click",
-                    "arguments": "{\"x\": 5, \"y\": 6}"}}]}}]},
-            {"choices": [{"message": {
-                "content": "",
-                "tool_calls": [{"id": "call_2", "function": {
-                    "name": "finish",
-                    "arguments": "{\"summary\": \"done\"}"}}]}}]},
-        ]
-        payloads = []
-
-        def fake_post(url, key, payload, timeout=120):
-            payloads.append(payload)
-            return replies.pop(0)
-
-        with patch.object(agent_module, '_post', side_effect=fake_post), \
-                patch.object(agent_module, 'click') as click:
-            summary = agent_module.run('k', 'm', self.stop, mode='auto',
-                                       max_steps=4, capture=lambda: b'png',
-                                       log=lambda message: None)
-        self.assertEqual(summary, 'done')
-        click.assert_called_once_with(5, 6)
-        self.assertIn('tools', payloads[0])
-        self.assertTrue(any(m.get('role') == 'tool'
-                            for m in payloads[1]['messages']))
-
-    def test_agent_stops_before_the_next_step(self):
-        self.stop.set()
-        with patch.object(agent_module, '_post') as post:
-            summary = agent_module.run('k', 'm', self.stop, mode='auto',
-                                       capture=lambda: b'png',
-                                       log=lambda message: None)
-        self.assertEqual(summary, 'stopped')
-        post.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()

@@ -125,7 +125,7 @@ function Set-EnvValue([string]$name, [string]$value) {
     Set-Content -LiteralPath $envPath -Value $output -Encoding UTF8
 }
 
-$settings = @{ popup = 'on'; position = 'bottom-left'; scale = '100'; thinking = 'high'; duration = '2'; agent = 'confirm' }
+$settings = @{ popup = 'on'; position = 'bottom-left'; scale = '100'; thinking = 'high'; duration = '2' }
 if (Test-Path -LiteralPath $settingsPath) {
     $raw = (Get-Content -LiteralPath $settingsPath -Raw).Trim()
     if ($raw -eq '1' -or $raw -eq '2') {
@@ -148,7 +148,6 @@ function Save-Settings {
     $lines += ('scale=' + $settings.scale)
     $lines += ('thinking=' + $settings.thinking)
     $lines += ('duration=' + $settings.duration)
-    $lines += ('agent=' + $settings.agent)
     Set-Content -LiteralPath $settingsPath -Value $lines
 }
 
@@ -217,19 +216,6 @@ function Read-Duration {
     }
 }
 
-function Read-Agent {
-    Write-Host ''
-    Write-Host '     [1] confirm every action' -ForegroundColor DarkGray
-    Write-Host '     [2] full auto' -ForegroundColor DarkGray
-    $pick = Read-Choice ('1-2, Enter = ' + $settings.agent)
-    switch ($pick) {
-        '1' { $settings.agent = 'confirm' }
-        '2' { $settings.agent = 'auto' }
-    }
-    Save-Settings
-    Write-Ok ('agent mode = ' + $settings.agent + '  (F10 starts and stops)')
-}
-
 # ---- is it running? ---------------------------------------------------------
 
 $running = $null
@@ -262,7 +248,7 @@ if ($running) {
         Write-Host ''
         Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
         Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
-        Write-Pair 'duration' ($settings.duration + 's') 'agent' $settings.agent
+        Write-Pair 'duration' ($settings.duration + 's')
         Write-Section 'monitor'
         Write-Item '1' 'Stop the monitor'
         Write-Section 'answer box'
@@ -270,12 +256,10 @@ if ($running) {
         Write-Item2 '4' 'Move the box' '5' 'Resize the box'
         Write-Section 'display & brain'
         Write-Item2 '6' 'Box duration' '7' 'Thinking effort'
-        Write-Section 'computer use'
-        Write-Item '8' 'Agent mode (confirm / full auto)'
         Write-Host ''
-        Write-Item '9' 'Close this window'
-        $action = Read-Choice 'choose 1-9, Enter = 9'
-        if ([string]::IsNullOrWhiteSpace($action)) { $action = '9' }
+        Write-Item '8' 'Close this window'
+        $action = Read-Choice 'choose 1-8, Enter = 8'
+        if ([string]::IsNullOrWhiteSpace($action)) { $action = '8' }
         switch ($action) {
             '1' {
                 Set-Content -LiteralPath $stopPath -Value 'stop'
@@ -299,7 +283,6 @@ if ($running) {
             '5' { Read-Scale; Start-Sleep -Seconds 1 }
             '6' { Read-Duration; Start-Sleep -Seconds 1 }
             '7' { Read-Thinking; Start-Sleep -Seconds 1 }
-            '8' { Read-Agent; Start-Sleep -Seconds 1 }
             default { exit 0 }
         }
     }
@@ -359,7 +342,7 @@ while ($true) {
     Write-Host ''
     Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
     Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
-    Write-Pair 'duration' ($settings.duration + 's') 'agent' $settings.agent
+    Write-Pair 'duration' ($settings.duration + 's') 'hotkey' 'F9'
     Write-Pair 'api key' $keyLabel 'model' $model
     Write-Pair 'endpoint' $baseUrl
     Write-Section 'start'
@@ -370,14 +353,11 @@ while ($true) {
     Write-Item2 '5' 'Box duration' '6' 'Thinking effort'
     Write-Section 'connection'
     Write-Item2 '7' 'API key' '8' 'Model / endpoint'
-    Write-Section 'computer use  (F10)'
-    Write-Item '9' 'Agent mode (confirm / full auto)'
-    Write-Host ''
     Write-Item '0' 'Exit'
     Write-Host ''
-    Write-Host '     press F9 to answer, F10 to start/stop computer use' -ForegroundColor DarkGray
+    Write-Host '     settings save to .monitor-settings' -ForegroundColor DarkGray
 
-    $choice = Read-Choice 'choose 0-9'
+    $choice = Read-Choice 'choose 0-8'
     if ([string]::IsNullOrWhiteSpace($choice)) { $choice = '0' }
 
     $start = $false
@@ -388,7 +368,6 @@ while ($true) {
         '4' { Read-Scale; Start-Sleep -Seconds 1 }
         '5' { Read-Duration; Start-Sleep -Seconds 1 }
         '6' { Read-Thinking; Start-Sleep -Seconds 1 }
-        '9' { Read-Agent; Start-Sleep -Seconds 1 }
         '7' {
             if ([Console]::IsInputRedirected) {
                 # A hidden prompt reads the console directly and would block on

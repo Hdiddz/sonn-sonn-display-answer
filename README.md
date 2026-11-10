@@ -52,7 +52,6 @@ py -3 -m venv .venv
 | Aksi | Caranya |
 |---|---|
 | Ambil gambar + jawab | tekan **F9** |
-| Computer use (DeepSeek) | tekan **F10**, tekan lagi untuk berhenti |
 | Baca jawaban esai | klik dua kali `open-answer.cmd` |
 | Hentikan monitor | klik dua kali `stop.cmd` |
 | Ubah pengaturan | klik dua kali `sonnsonn.cmd` |
@@ -70,7 +69,7 @@ membatalkan capture.
 
      popup      on              thinking  high
      position   bottom-left     scale     100%
-     duration   2s              agent     confirm
+     duration   2s              hotkey    F9
      api key    sk-4...e246     model     deepseek-flash
      endpoint   https://api.deepseek.com
 
@@ -82,8 +81,6 @@ membatalkan capture.
      [5]  Box duration          [6]  Thinking effort
    ── CONNECTION ──────────────────────────────────────────
      [7]  API key               [8]  Model / endpoint
-   ── COMPUTER USE (F10) ──────────────────────────────────
-     [9]  Agent mode (confirm / full auto)
      [0]  Exit
 ```
 
@@ -91,8 +88,7 @@ membatalkan capture.
   jadi perubahan langsung berlaku tanpa restart.
 - Kalau monitor sudah aktif, menunya berubah jadi menu kontrol:
   `[1]` stop · `[2]`/`[3]` sembunyikan/tampilkan kotak · `[4]` pindah ·
-  `[5]` ukuran · `[6]` durasi kotak · `[7]` thinking · `[8]` mode agent ·
-  `[9]` tutup.
+  `[5]` ukuran · `[6]` durasi kotak · `[7]` thinking · `[8]` tutup.
 - **Durasi kotak** (`[5]`) bisa 1–30 detik, default 2 detik.
 - Label menu sengaja bahasa Inggris agar cocok dengan tampilan aplikasi.
 
@@ -103,25 +99,6 @@ Posisi: `bottom-left`, `bottom-right`, `top-left`, `top-right`, `center`.
 A = 1 kedip, B = 2, C = 3, D = 4, E = 5, F = 6. Jawaban esai dan status "tidak
 ada soal" memakai nada berbeda (bila suara diaktifkan; build default senyap).
 
-## Computer use (F10)
-
-Hanya tersedia di endpoint DeepSeek. Tekan **F10** untuk memulai agent yang
-menggerakkan mouse dan keyboard sendiri: ia menangkap layar, meminta DeepSeek
-memilih satu aksi, menjalankan aksi itu, lalu mengulang dengan tangkapan layar
-baru. Tekan **F10** lagi untuk berhenti.
-
-Dua mode, dipilih di menu `[9]`:
-
-- **confirm** - setiap aksi memunculkan dialog: **Enter** jalankan, **Esc**
-  batalkan. F10 menutup dialog dan menghentikan agent.
-- **auto** - aksi langsung dijalankan tanpa konfirmasi.
-
-Batas pengaman: maksimal 15 langkah, aksi hanya `click`, `type_text`,
-`press_key`, `scroll`, dan `finish`; koordinat di luar layar ditolak; setiap
-aksi dicatat di `monitor.log`.
-
-> Mode ini benar-benar menggerakkan pointer dan mengetik di desktop Anda. Mulai
-> dari mode `confirm` dan uji di halaman kuis percobaan sebelum dipakai serius.
 ## Model dan provider
 
 Default **DeepSeek**, bisa diganti lewat menu `[7]` atau `.env`:
