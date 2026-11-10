@@ -6,6 +6,96 @@ $settingsPath = Join-Path $PSScriptRoot '.monitor-settings'
 $stopPath = Join-Path $PSScriptRoot 'monitor.stop'
 $envPath = Join-Path $PSScriptRoot '.env'
 
+# ---- console look -----------------------------------------------------------
+# Box drawing is built from code points so this script stays plain ASCII and
+# Windows PowerShell 5.1 cannot mis-read it.
+$boxH = [string][char]0x2550
+$boxV = [string][char]0x2551
+$boxTL = [string][char]0x2554
+$boxTR = [string][char]0x2557
+$boxBL = [string][char]0x255A
+$boxBR = [string][char]0x255D
+$boxL = [string][char]0x2500
+
+try { $Host.UI.RawUI.WindowTitle = 'sonnsonn' } catch { }
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    chcp 65001 > $null
+} catch { }
+
+function Clear-Screen {
+    try { Clear-Host } catch { }
+}
+
+function Write-Banner([string]$subtitle) {
+    $title = 'sonnsonn'
+    $rest = '   ' + $subtitle
+    $available = 54 - $title.Length
+    if ($rest.Length -gt $available) { $rest = $rest.Substring(0, $available) }
+    $pad = ' ' * [Math]::Max(0, 54 - $title.Length - $rest.Length)
+    Write-Host ''
+    Write-Host ('  ' + $boxTL + ($boxH * 56) + $boxTR) -ForegroundColor DarkCyan
+    Write-Host ('  ' + $boxV + '  ') -NoNewline -ForegroundColor DarkCyan
+    Write-Host $title -NoNewline -ForegroundColor Cyan
+    Write-Host $rest -NoNewline -ForegroundColor DarkGray
+    Write-Host ($pad + $boxV) -ForegroundColor DarkCyan
+    Write-Host ('  ' + $boxBL + ($boxH * 56) + $boxBR) -ForegroundColor DarkCyan
+}
+
+function Write-Pair([string]$k1, [string]$v1, [string]$k2 = '', [string]$v2 = '') {
+    Write-Host ('     ' + $k1.PadRight(10)) -NoNewline -ForegroundColor DarkGray
+    if ($k2) {
+        if ($v1.Length -gt 22) { $v1 = $v1.Substring(0, 21) + '>' }
+        if ($v2.Length -gt 24) { $v2 = $v2.Substring(0, 24) }
+        Write-Host $v1.PadRight(22) -NoNewline -ForegroundColor White
+        Write-Host $k2.PadRight(10) -NoNewline -ForegroundColor DarkGray
+        Write-Host $v2 -ForegroundColor Cyan
+    } else {
+        Write-Host $v1 -ForegroundColor White
+    }
+}
+
+function Write-Section([string]$title) {
+    $label = '    ' + $boxL + $boxL + ' ' + $title.ToUpper() + ' '
+    $fill = [Math]::Max(0, 60 - $label.Length)
+    Write-Host ''
+    Write-Host ($label + ($boxL * $fill)) -ForegroundColor DarkCyan
+}
+
+function Write-Item([string]$key, [string]$text) {
+    Write-Host ('     [' + $key + ']  ') -NoNewline -ForegroundColor Yellow
+    Write-Host $text -ForegroundColor White
+}
+
+function Write-Item2([string]$k1, [string]$t1, [string]$k2, [string]$t2) {
+    Write-Host ('     [' + $k1 + ']  ') -NoNewline -ForegroundColor Yellow
+    Write-Host $t1.PadRight(25) -NoNewline -ForegroundColor White
+    Write-Host ('[' + $k2 + ']  ') -NoNewline -ForegroundColor Yellow
+    Write-Host $t2 -ForegroundColor White
+}
+
+function Read-Choice([string]$range) {
+    Write-Host ''
+    Write-Host ('     ' + $range + '  ') -NoNewline -ForegroundColor DarkGray
+    Write-Host '>' -NoNewline -ForegroundColor Yellow
+    Write-Host ' ' -NoNewline
+    return (Read-Host)
+}
+
+function Write-Ok([string]$message) {
+    Write-Host '     ' -NoNewline
+    Write-Host 'ok ' -NoNewline -ForegroundColor Green
+    Write-Host $message -ForegroundColor Gray
+}
+
+function Write-Warn([string]$message) {
+    Write-Host '     ' -NoNewline
+    Write-Host '!  ' -NoNewline -ForegroundColor DarkYellow
+    Write-Host $message -ForegroundColor Gray
+}
+
+# ---- settings ---------------------------------------------------------------
+
 function Get-EnvValue([string]$name) {
     if (-not (Test-Path -LiteralPath $envPath)) { return '' }
     $pattern = '^\s*' + [regex]::Escape($name) + '\s*=\s*(.*)$'
@@ -61,8 +151,9 @@ function Save-Settings {
 }
 
 function Read-Thinking {
-    Write-Host '    [1] off    [2] low    [3] high    [4] max'
-    $pick = Read-Host ("  Thinking effort 1-4 [Enter = " + $settings.thinking + ']')
+    Write-Host ''
+    Write-Host '     off / low / high / max' -ForegroundColor DarkGray
+    $pick = Read-Choice ('choose 1-4, Enter = ' + $settings.thinking)
     switch ($pick) {
         '1' { $settings.thinking = 'off' }
         '2' { $settings.thinking = 'low' }
@@ -70,13 +161,13 @@ function Read-Thinking {
         '4' { $settings.thinking = 'max' }
     }
     Save-Settings
-    Write-Host ("  Thinking effort: " + $settings.thinking)
+    Write-Ok ('thinking = ' + $settings.thinking)
 }
 
 function Read-Position {
-    Write-Host '    [1] bottom-left   [2] bottom-right   [3] top-left'
-    Write-Host '    [4] top-right     [5] center'
-    $pick = Read-Host ("  Position 1-5 [Enter = " + $settings.position + ']')
+    Write-Host ''
+    Write-Host ('     ' + '[1] bottom-left   [2] bottom-right   [3] top-left   [4] top-right   [5] center') -ForegroundColor DarkGray
+    $pick = Read-Choice ('choose 1-5, Enter = ' + $settings.position)
     switch ($pick) {
         '1' { $settings.position = 'bottom-left' }
         '2' { $settings.position = 'bottom-right' }
@@ -85,26 +176,28 @@ function Read-Position {
         '5' { $settings.position = 'center' }
     }
     Save-Settings
-    Write-Host ("  Popup position: " + $settings.position)
+    Write-Ok ('position = ' + $settings.position)
 }
 
 function Read-Scale {
-    $pick = Read-Host ("  Popup size in percent 50-200 [Enter = " + $settings.scale + ']')
+    $pick = Read-Choice ('size 50-200, Enter = ' + $settings.scale)
     if ($pick -match '^\d+$') {
         $value = [int]$pick
         if ($value -ge 50 -and $value -le 200) {
             $settings.scale = [string]$value
             Save-Settings
-            Write-Host ("  Popup size: " + $settings.scale + '%')
+            Write-Ok ('scale = ' + $settings.scale + '%')
         } else {
-            Write-Host '  Keep it between 50 and 200 percent; nothing changed.'
+            Write-Warn 'keep it between 50 and 200 percent; nothing changed'
         }
     } elseif ([string]::IsNullOrWhiteSpace($pick)) {
-        Write-Host ("  Popup size stays at " + $settings.scale + '%')
+        Write-Ok ('scale stays at ' + $settings.scale + '%')
     } else {
-        Write-Host '  Not a number; nothing changed.'
+        Write-Warn 'not a number; nothing changed'
     }
 }
+
+# ---- is it running? ---------------------------------------------------------
 
 $running = $null
 if (Test-Path -LiteralPath $pidPath) {
@@ -129,49 +222,59 @@ if ($Stop) {
 
 if ($running) {
     # A running monitor still needs a console, so this window controls it.
-    # Position and size are read per answer, so they apply without a restart.
+    # Every setting here is read per answer, so changes apply without a restart.
     while ($true) {
+        Clear-Screen
+        Write-Banner ('monitor active  -  PID ' + $running.ProcessId)
         Write-Host ''
-        Write-Host ("  Monitor is running (PID $($running.ProcessId)).")
-        Write-Host ("    popup: " + $settings.popup + "   position: " + $settings.position +
-                    "   scale: " + $settings.scale + '%   thinking: ' + $settings.thinking)
-        Write-Host '    [1] Stop the monitor'
-        Write-Host '    [2] Hide the answer box (CapsLock flashes only)'
-        Write-Host '    [3] Show the answer box again'
-        Write-Host '    [4] Move the answer box'
-        Write-Host '    [5] Resize the answer box'
-        Write-Host '    [6] Thinking effort (off/low/high/max)'
-        Write-Host '    [7] Nothing, just close'
-        $action = Read-Host '  Choose 1-7 [Enter = 7]'
+        Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
+        Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
+        Write-Section 'monitor'
+        Write-Item '1' 'Stop the monitor'
+        Write-Section 'answer box'
+        Write-Item2 '2' 'Hide the box' '3' 'Show the box'
+        Write-Item2 '4' 'Move the box' '5' 'Resize the box'
+        Write-Section 'brain'
+        Write-Item '6' 'Thinking effort (off / low / high / max)'
+        Write-Host ''
+        Write-Item '7' 'Close this window'
+        $action = Read-Choice 'choose 1-7, Enter = 7'
         if ([string]::IsNullOrWhiteSpace($action)) { $action = '7' }
         switch ($action) {
             '1' {
                 Set-Content -LiteralPath $stopPath -Value 'stop'
-                Write-Host '  Stop requested. The monitor exits after the current request.'
+                Write-Ok 'stop requested - the monitor exits after the current request'
+                Start-Sleep -Seconds 1
                 exit 0
             }
             '2' {
                 $settings.popup = 'off'
                 Save-Settings
-                Write-Host '  Answer box hidden. CapsLock flashes stay on.'
+                Write-Ok 'answer box hidden - CapsLock flashes stay on'
+                Start-Sleep -Seconds 1
             }
             '3' {
                 $settings.popup = 'on'
                 Save-Settings
-                Write-Host '  Answer box enabled again.'
+                Write-Ok 'answer box enabled again'
+                Start-Sleep -Seconds 1
             }
-            '4' { Read-Position }
-            '5' { Read-Scale }
-            '6' { Read-Thinking }
+            '4' { Read-Position; Start-Sleep -Seconds 1 }
+            '5' { Read-Scale; Start-Sleep -Seconds 1 }
+            '6' { Read-Thinking; Start-Sleep -Seconds 1 }
             default { exit 0 }
         }
     }
 }
 
-# ---- starting a new monitor ------------------------------------------------
+# ---- starting a new monitor -------------------------------------------------
 
 $venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $venvPython)) {
+    Clear-Screen
+    Write-Banner 'first run - installing'
+    Write-Host ''
+    Write-Host '     creating .venv and installing dependencies, about a minute...' -ForegroundColor Gray
     & py -3 -m venv (Join-Path $PSScriptRoot '.venv')
     if ($LASTEXITCODE -ne 0) { throw 'Could not create the Python environment. Install Python 3.10 or newer.' }
     & $venvPython -m pip install -r (Join-Path $PSScriptRoot 'requirements.txt')
@@ -200,7 +303,7 @@ if ((Test-Path -LiteralPath $venvConfig) -and (Test-Path -LiteralPath $sitePacka
 
 while ($true) {
     $apiKey = Get-EnvValue 'DEEPSEEK_API_KEY'
-    $keyLabel = 'not set - choose [6]'
+    $keyLabel = 'not set'
     if ($apiKey -and $apiKey -ne 'your_key_here') {
         if ($apiKey.Length -gt 8) {
             $keyLabel = $apiKey.Substring(0, 4) + '...' + $apiKey.Substring($apiKey.Length - 4)
@@ -213,23 +316,27 @@ while ($true) {
     $baseUrl = Get-EnvValue 'DEEPSEEK_BASE_URL'
     if (-not $baseUrl) { $baseUrl = 'https://api.deepseek.com' }
 
+    Clear-Screen
+    Write-Banner 'screen answer reader'
     Write-Host ''
-    Write-Host '  CapsLock Monitor'
-    Write-Host ("    popup    : " + $settings.popup)
-    Write-Host ("    position : " + $settings.position + "    scale: " + $settings.scale + '%')
-    Write-Host ("    thinking : " + $settings.thinking)
-    Write-Host ("    api key  : " + $keyLabel)
-    Write-Host ("    model    : " + $model + "  (" + $baseUrl + ')')
+    Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
+    Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
+    Write-Pair 'api key' $keyLabel 'model' $model
+    Write-Pair 'endpoint' $baseUrl
+    Write-Section 'start'
+    Write-Item '1' 'Answer box + CapsLock flashes'
+    Write-Item '2' 'CapsLock flashes only'
+    Write-Section 'display'
+    Write-Item2 '3' 'Popup position' '4' 'Popup size'
+    Write-Item '5' 'Thinking effort (off / low / high / max)'
+    Write-Section 'connection'
+    Write-Item2 '6' 'API key' '7' 'Model / endpoint'
     Write-Host ''
-    Write-Host '    [1] Start - answer box + CapsLock flashes'
-    Write-Host '    [2] Start - CapsLock flashes only'
-    Write-Host '    [3] Popup position'
-    Write-Host '    [4] Popup size'
-    Write-Host '    [5] Thinking effort (off/low/high/max)'
-    Write-Host '    [6] API key'
-    Write-Host '    [7] Model / API base URL'
-    Write-Host '    [8] Exit'
-    $choice = Read-Host '  Choose 1-8'
+    Write-Item '8' 'Exit'
+    Write-Host ''
+    Write-Host '     press F9 after starting - settings save to .monitor-settings' -ForegroundColor DarkGray
+
+    $choice = Read-Choice 'choose 1-8'
     if ([string]::IsNullOrWhiteSpace($choice)) { $choice = '8' }
 
     $start = $false
@@ -243,9 +350,9 @@ while ($true) {
             if ([Console]::IsInputRedirected) {
                 # A hidden prompt reads the console directly and would block on
                 # piped input, so accept a normal line when input is redirected.
-                $plain = Read-Host '  Paste the new API key (Enter keeps the current one)'
+                $plain = Read-Host '     paste the new API key (Enter keeps the current one)'
             } else {
-                $secure = Read-Host '  Paste the new API key (Enter keeps the current one)' -AsSecureString
+                $secure = Read-Host '     paste the new API key (Enter keeps the current one)' -AsSecureString
                 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
                 try {
                     $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
@@ -254,21 +361,24 @@ while ($true) {
                 }
             }
             if ([string]::IsNullOrWhiteSpace($plain)) {
-                Write-Host '  API key unchanged.'
+                Write-Ok 'API key unchanged'
             } else {
                 Set-EnvValue 'DEEPSEEK_API_KEY' $plain.Trim()
-                Write-Host '  API key saved to .env.'
+                Write-Ok 'API key saved to .env'
             }
+            Start-Sleep -Seconds 1
         }
         '7' {
-            $newModel = Read-Host ("  Model [Enter = " + $model + ']')
+            $newModel = Read-Host ('     model [Enter = ' + $model + ']')
             if (-not [string]::IsNullOrWhiteSpace($newModel)) {
                 Set-EnvValue 'DEEPSEEK_MODEL' $newModel.Trim()
             }
-            $newBase = Read-Host ("  API base URL [Enter = " + $baseUrl + ']')
+            $newBase = Read-Host ('     API base URL [Enter = ' + $baseUrl + ']')
             if (-not [string]::IsNullOrWhiteSpace($newBase)) {
                 Set-EnvValue 'DEEPSEEK_BASE_URL' ($newBase.Trim().TrimEnd('/'))
             }
+            Write-Ok 'connection settings saved'
+            Start-Sleep -Seconds 1
         }
         default { exit 0 }
     }
@@ -276,6 +386,8 @@ while ($true) {
 }
 
 if (Test-Path -LiteralPath $stopPath) { Remove-Item -LiteralPath $stopPath }
+Write-Host ''
+Write-Host '     starting monitor...' -ForegroundColor DarkGray
 $arguments = @('-u', ('"' + $monitorScript + '"'), '--key', 'f9', '--mute',
                '--stop-file', ('"' + $stopPath + '"'))
 $process = Start-Process -FilePath $pythonPath -ArgumentList $arguments -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $PSScriptRoot 'monitor.log') -RedirectStandardError (Join-Path $PSScriptRoot 'monitor-error.log') -PassThru
@@ -285,4 +397,14 @@ $process.Refresh()
 if ($process.HasExited) {
     throw 'Monitor exited during startup. Check monitor.log and monitor-error.log.'
 }
-Write-Host "Monitor started (PID $($process.Id)). Press F9 to capture. Run stop.cmd to stop."
+Clear-Screen
+Write-Banner 'ready'
+Write-Host ''
+Write-Pair 'status' 'listening' 'hotkey' 'F9'
+Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
+Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
+Write-Pair 'pid' ([string]$process.Id) 'log' 'monitor.log'
+Write-Host ''
+Write-Host '     press F9 on any question' -ForegroundColor Cyan
+Write-Host '     this window closes by itself - run stop.cmd to stop' -ForegroundColor DarkGray
+Start-Sleep -Seconds 2

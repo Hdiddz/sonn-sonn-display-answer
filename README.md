@@ -61,17 +61,31 @@ membatalkan capture.
 ## Menu pengaturan
 
 ```
-    [1] Start - answer box + CapsLock flashes
-    [2] Start - CapsLock flashes only
-    [3] Popup position      [4] Popup size
-    [5] Thinking effort     [6] API key
-    [7] Model / API base URL   [8] Exit
+  ╔════════════════════════════════════════════════════════╗
+  ║  sonnsonn   screen answer reader                       ║
+  ╚════════════════════════════════════════════════════════╝
+
+     popup      on              thinking  high
+     position   bottom-left     scale     100%
+     api key    sk-4...e246     model     deepseek-flash
+     endpoint   https://api.deepseek.com
+
+   ── START ───────────────────────────────────────────────
+     [1]  Answer box + CapsLock flashes
+     [2]  CapsLock flashes only
+   ── DISPLAY ─────────────────────────────────────────────
+     [3]  Popup position        [4]  Popup size
+     [5]  Thinking effort (off / low / high / max)
+   ── CONNECTION ──────────────────────────────────────────
+     [6]  API key               [7]  Model / endpoint
+     [8]  Exit
 ```
 
 - Pengaturan disimpan di `.monitor-settings` dan **dibaca ulang tiap jawaban**,
   jadi perubahan langsung berlaku tanpa restart.
-- Kalau monitor sudah aktif, menu yang muncul adalah menu kontrol: stop,
-  sembunyikan/tampilkan kotak, pindah, ukuran, dan thinking.
+- Kalau monitor sudah aktif, menunya berubah jadi menu kontrol:
+  `[1]` stop · `[2]` sembunyikan kotak · `[3]` tampilkan kotak ·
+  `[4]` pindah · `[5]` ukuran · `[6]` thinking · `[7]` tutup.
 - Label menu sengaja bahasa Inggris agar cocok dengan tampilan aplikasi.
 
 Posisi: `bottom-left`, `bottom-right`, `top-left`, `top-right`, `center`.
