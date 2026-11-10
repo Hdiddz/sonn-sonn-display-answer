@@ -1,4 +1,8 @@
-"""A compact, silent answer popup that never activates its window."""
+"""A compact, silent answer popup that never activates its window.
+
+Two layouts: `compact` for multiple-choice answers (small fixed box) and
+`paragraph` for written answers, where the box grows to fit the whole text.
+"""
 import argparse
 import ctypes
 from ctypes import wintypes as w
@@ -8,7 +12,7 @@ import textwrap
 
 
 def show_popup(title='Answer: C', duration_ms=2000, *, detail='', preview=False,
-               corner='bottom-left', scale=100, on_show=None):
+               corner='bottom-left', scale=100, layout='compact', on_show=None):
     if sys.platform != 'win32':
         return
     user32 = ctypes.WinDLL('user32', use_last_error=True)
@@ -48,6 +52,8 @@ def show_popup(title='Answer: C', duration_ms=2000, *, detail='', preview=False,
     system_metrics = bind(user32, 'SystemParametersInfoW', w.BOOL, w.UINT,
                           w.UINT, pointer, w.UINT)
     send = bind(user32, 'SendMessageW', result_type, w.HWND, w.UINT, w.WPARAM, w.LPARAM)
+    draw_text = bind(user32, 'DrawTextW', ctypes.c_int, w.HDC, w.LPCWSTR,
+                     ctypes.c_int, ctypes.POINTER(w.RECT), w.UINT)
     instance = bind(kernel32, 'GetModuleHandleW', w.HMODULE, w.LPCWSTR)(None)
     brush = bind(gdi32, 'CreateSolidBrush', w.HBRUSH, w.DWORD)(0xF5F5F5)
     delete_object = bind(gdi32, 'DeleteObject', w.BOOL, w.HANDLE)
@@ -55,6 +61,9 @@ def show_popup(title='Answer: C', duration_ms=2000, *, detail='', preview=False,
     set_background_mode = bind(gdi32, 'SetBkMode', ctypes.c_int, w.HDC, ctypes.c_int)
     create_font = bind(gdi32, 'CreateFontW', w.HFONT,
                        *([ctypes.c_int] * 5), *([w.DWORD] * 8), w.LPCWSTR)
+    create_dc = bind(gdi32, 'CreateCompatibleDC', w.HDC, w.HDC)
+    select_object = bind(gdi32, 'SelectObject', w.HGDIOBJ, w.HDC, w.HGDIOBJ)
+    delete_dc = bind(gdi32, 'DeleteDC', w.BOOL, w.HDC)
     text_colors = {}
 
     @callback_type
@@ -74,15 +83,88 @@ def show_popup(title='Answer: C', duration_ms=2000, *, detail='', preview=False,
             return 3  # MA_NOACTIVATE
         return default(hwnd, message, wp, lp)
 
+    def measure(text, font, width):
+        """Height in pixels that `text` needs at `width` (word wrapped)."""
+        dc = create_dc(None)
+        previous = select_object(dc, font)
+        rect = w.RECT(0, 0, max(20, width), 0)
+        draw_text(dc, text, -1, ctypes.byref(rect), 0x0400 | 0x0010 | 0x0800)
+        select_object(dc, previous)
+        delete_dc(dc)
+        return max(1, rect.bottom)
+
     class_name = f'CaptureStatus_{os.getpid()}'
     definition = WindowClass(0, procedure, 0, 0, instance, None, None, brush, None, class_name)
     if not register(ctypes.byref(definition)):
         raise ctypes.WinError(ctypes.get_last_error())
+
     factor = max(0.5, min(2.0, float(scale) / 100.0))
-    width = max(64, int(round(104 * factor)))
-    height = max(36, int(round(58 * factor)))
+    fonts = []
+
+    def make_font(size):
+        handle = create_font(-size, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, 'Segoe UI')
+        fonts.append(handle)
+        return handle
+
+    # Usable desktop first: paragraph layout is capped to its height.
+    work = w.RECT(0, 0, 0, 0)
+    if not system_metrics(0x0030, 0, ctypes.byref(work), 0):  # SPI_GETWORKAREA
+        work = w.RECT(0, 0, user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
+    span_x = work.right - work.left
+    span_y = work.bottom - work.top
+
+    if layout == 'paragraph':
+        width = max(220, int(round(360 * factor)))
+        pad = max(6, int(round(10 * factor)))
+        title_size = max(9, int(round(13 * factor)))
+        detail_size = max(9, int(round(10 * factor)))
+        title_height = title_size + max(4, int(round(8 * factor)))
+        align = 0x0  # SS_LEFT
+        inner = width - 2 * pad
+        text = ' '.join(detail.split())
+        limit = int(span_y * 0.72)
+        title_font = make_font(title_size)
+        detail_font = None
+        text_height = 0
+        for size in range(detail_size, 6, -1):
+            candidate = make_font(size)
+            needed = measure(text, candidate, inner)
+            if pad + title_height + needed + pad <= limit:
+                detail_font, text_height = candidate, needed
+                break
+        if detail_font is None:
+            detail_font = make_font(7)
+            words = text.split()
+            while words and (pad + title_height
+                             + measure(' '.join(words) + ' …', detail_font, inner)
+                             + pad) > limit:
+                words.pop()
+            text = ' '.join(words) + ' …'
+            text_height = measure(text, detail_font, inner)
+        detail = text
+        height = pad + title_height + text_height + pad
+        title_top = pad
+        detail_top = pad + title_height
+        detail_height = text_height + 2
+    else:
+        width = max(64, int(round(104 * factor)))
+        height = max(36, int(round(58 * factor)))
+        pad = max(2, int(round(3 * factor)))
+        title_top = max(2, int(round(4 * factor)))
+        title_height = max(14, int(round(22 * factor)))
+        detail_top = max(title_top + title_height, int(round(26 * factor)))
+        detail_height = max(14, int(round(26 * factor)))
+        title_size = max(9, int(round((17 if len(title) <= 10 else 12) * factor)))
+        detail_size = max(7, int(round(9 * factor)))
+        wrap = max(8, int(round(18 * factor)))
+        detail = textwrap.fill(' '.join(detail.split()), width=wrap,
+                               max_lines=2, placeholder='…')
+        align = 0x1  # SS_CENTER
+        title_font = make_font(title_size)
+        detail_font = make_font(detail_size)
+
     margin = max(4, int(round(8 * factor)))
-    # TOPMOST | NOACTIVATE | TRANSPARENT; TOOLWINDOW hides the normal popup from Alt+Tab.
+    # TOPMOST | NOACTIVATE | TRANSPARENT; TOOLWINDOW hides the popup from Alt+Tab.
     extended_style = 0x8 if preview else (0x08000000 | 0x8 | 0x20 | 0x80)
     window_style = 0x00CF0000 if preview else 0x80000000
     outer = w.RECT(0, 0, width, height)
@@ -90,12 +172,7 @@ def show_popup(title='Answer: C', duration_ms=2000, *, detail='', preview=False,
          w.BOOL, w.DWORD)(ctypes.byref(outer), window_style, False, extended_style)
     outer_width = outer.right - outer.left
     outer_height = outer.bottom - outer.top
-    # Place inside the usable desktop, so the taskbar never covers the box.
-    work = w.RECT(0, 0, 0, 0)
-    if not system_metrics(0x0030, 0, ctypes.byref(work), 0):  # SPI_GETWORKAREA
-        work = w.RECT(0, 0, user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
-    span_x = work.right - work.left
-    span_y = work.bottom - work.top
+
     if corner == 'top-left':
         x, y = work.left + margin, work.top + margin
     elif corner == 'top-right':
@@ -107,34 +184,22 @@ def show_popup(title='Answer: C', duration_ms=2000, *, detail='', preview=False,
         x, y = work.right - outer_width - margin, work.bottom - outer_height - margin
     else:  # bottom-left is the default
         x, y = work.left + margin, work.bottom - outer_height - margin
+
     hwnd = create(extended_style, class_name, 'Question Answer',
                   window_style, x, y, outer_width, outer_height,
                   None, None, instance, None)
     if not hwnd:
         raise ctypes.WinError(ctypes.get_last_error())
-    fonts = []
     try:
-        wrap = max(8, int(round(18 * factor)))
-        detail = textwrap.fill(' '.join(detail.split()), width=wrap,
-                               max_lines=2, placeholder='…')
-        title_top = max(2, int(round(4 * factor)))
-        title_height = max(14, int(round(22 * factor)))
-        detail_top = max(title_top + title_height, int(round(26 * factor)))
-        detail_height = max(14, int(round(26 * factor)))
-        title_size = max(9, int(round((17 if len(title) <= 10 else 12) * factor)))
-        detail_size = max(7, int(round(9 * factor)))
-        for text, top, control_height, font_height, color in (
-                (title, title_top, title_height, title_size, 0x111111),
-                (detail, detail_top, detail_height, detail_size, 0x5C3400)):
-            label = create(0, 'STATIC', text, 0x40000000 | 0x10000000 | 0x1,
-                           max(2, int(round(3 * factor))), top,
-                           width - max(4, int(round(6 * factor))),
-                           control_height, hwnd, None, instance, None)
+        for text, top, control_height, font, color in (
+                (title, title_top, title_height, title_font, 0x111111),
+                (detail, detail_top, detail_height, detail_font, 0x5C3400)):
+            label = create(0, 'STATIC', text, 0x40000000 | 0x10000000 | 0x80 | align,
+                           pad, top, width - 2 * pad, control_height,
+                           hwnd, None, instance, None)
             if not label:
                 raise ctypes.WinError(ctypes.get_last_error())
             text_colors[label] = color
-            font = create_font(-font_height, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, 'Segoe UI')
-            fonts.append(font)
             send(label, 0x30, font, 1)  # WM_SETFONT
         # Show directly with SWP_NOACTIVATE; no GUI toolkit can request focus afterward.
         if not position(hwnd, ctypes.c_void_p(-1), 0, 0, 0, 0, 0x53):
@@ -169,10 +234,13 @@ def main():
                         choices=['bottom-left', 'bottom-right', 'top-left',
                                  'top-right', 'center'])
     parser.add_argument('--scale', type=int, default=100)
+    parser.add_argument('--layout', default='compact',
+                        choices=['compact', 'paragraph'])
     parser.add_argument('--preview', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     show_popup(args.title, args.duration_ms, detail=args.detail,
-               preview=args.preview, corner=args.corner, scale=args.scale)
+               preview=args.preview, corner=args.corner, scale=args.scale,
+               layout=args.layout)
     return 0
 
 

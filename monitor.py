@@ -68,7 +68,10 @@ SYSTEM_PROMPT = (
     "Letters a/b/c labeling separate tasks are subquestions, NOT answer choices. "
     "For a written question, answer every visible subquestion, using the same "
     "language as the question; preserve subquestion labels and include a plain "
-    "text diagram if requested. Do not invent missing or unreadable text. "
+    "text diagram if requested. Keep written answers short and to the point: "
+    "one to three sentences, or at most three short bullet points, unless the "
+    "question explicitly asks for a long explanation. Do not invent missing or "
+    "unreadable text. "
     "Before answering, judge whether the correct answer depends on facts that "
     "may have changed after your training data: current events, releases, "
     "versions, prices, statistics, office holders, schedules, or anything "
@@ -185,6 +188,7 @@ def show_answer_popup(result):
     if sys.platform != 'win32':
         return
     kind = result.get('question_type')
+    layout = 'compact'
     if kind == 'multiple_choice':
         letter = result['answer'].strip().upper()
         index = ord(letter) - ord('A')
@@ -192,18 +196,23 @@ def show_answer_popup(result):
         title = f'Answer: {letter}'
         detail = options[index] if index < len(options) else f'{index + 1} CapsLock flashes'
     elif kind == 'written':
-        title, detail = 'Written answer', result.get('response', '')
+        # Paragraph layout grows the box so the whole answer stays visible.
+        title, detail = 'Answer', result.get('response', '')
+        layout = 'paragraph'
     elif kind == 'error':
         title, detail = 'Request failed', 'See monitor.log'
     else:
         title, detail = 'No question', 'Try a clearer view'
+    limit = 1400 if layout == 'paragraph' else 160
     try:
         settings = load_settings()
         subprocess.Popen(
             [sys.executable, str(Path(__file__).resolve().with_name('capture_popup.py')),
-             '--title=' + title, '--detail=' + ' '.join(detail.split())[:160],
+             '--title=' + title,
+             '--detail=' + ' '.join(detail.split())[:limit],
              '--corner=' + settings['position'],
-             '--scale=' + settings['scale']],
+             '--scale=' + settings['scale'],
+             '--layout=' + layout],
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
     except OSError as e:

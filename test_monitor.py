@@ -385,6 +385,31 @@ class MonitorTests(unittest.TestCase):
         self.assertIn('--corner=top-right', argv)
         self.assertIn('--scale=150', argv)
         self.assertIn('--title=Answer: B', argv)
+        self.assertIn('--layout=compact', argv)
+
+    def test_written_answer_popup_keeps_the_whole_paragraph(self):
+        long_answer = ('Perizinan terpadu memangkas waktu proses karena semua '
+                       'instansi memeriksa satu berkas yang sama. Investor cukup '
+                       'mengunggah dokumen sekali, lalu status tiap izin terlihat '
+                       'di satu dasbor. Perubahan kecil seperti ini yang membuat '
+                       'proses terasa jauh lebih cepat bagi pengguna.')
+        result = {"question_type": "written", "answer": None,
+                  "question": "Jelaskan perbaikan proses perizinan.",
+                  "response": long_answer}
+        with patch.object(monitor.sys, 'platform', 'win32'), \
+                patch.object(monitor, 'load_settings',
+                             return_value={'popup': 'on',
+                                           'position': 'bottom-left',
+                                           'scale': '100'}), \
+                patch.object(monitor.subprocess, 'Popen') as popen:
+            monitor.show_answer_popup(result)
+        argv = popen.call_args.args[0]
+        detail = [a for a in argv if a.startswith('--detail=')][0]
+        self.assertIn('--layout=paragraph', argv)
+        self.assertEqual(detail, '--detail=' + long_answer)
+
+    def test_written_answers_are_asked_to_stay_short(self):
+        self.assertIn('short and to the point', monitor.SYSTEM_PROMPT)
 
     def test_settings_file_parses_position_and_scale(self):
         with tempfile.TemporaryDirectory() as folder:

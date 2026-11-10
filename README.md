@@ -16,7 +16,9 @@ di pojok layar.**
   (atas ke bawah, lalu kiri ke kanan).
 - **Kotak jawaban** opsional: 5 posisi sudut, skala 50–200 %, tidak merebut
   fokus keyboard, menutup sendiri.
-- **Jawaban esai** (termasuk sub a/b/c) disimpan ke `latest-answer.txt`.
+- **Jawaban esai** (termasuk sub a/b/c) dijawab **singkat dan to the point**
+  (1–3 kalimat) dan disimpan ke `latest-answer.txt`. Kotak jawabannya membesar
+  mengikuti panjang teks, jadi paragrafnya tampil utuh tanpa terpotong.
 - **Thinking** off/low/high/max (default `high`) untuk soal hitungan.
 - **Pencarian web** untuk soal yang butuh fakta terkini.
 - **Provider bebas**: endpoint apa pun yang kompatibel OpenAI.
