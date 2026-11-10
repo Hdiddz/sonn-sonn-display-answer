@@ -30,6 +30,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -123,6 +124,8 @@ SETTINGS_DEFAULTS = {
     "position": "bottom-left",
     "scale": "100",
     "thinking": "high",
+    "duration": "2",
+    "agent": "confirm",
 }
 
 
@@ -206,13 +209,19 @@ def show_answer_popup(result):
     limit = 1400 if layout == 'paragraph' else 160
     try:
         settings = load_settings()
+        try:
+            seconds = float(settings.get('duration', '2'))
+        except ValueError:
+            seconds = 2.0
+        seconds = max(0.5, min(60.0, seconds))
         subprocess.Popen(
             [sys.executable, str(Path(__file__).resolve().with_name('capture_popup.py')),
              '--title=' + title,
              '--detail=' + ' '.join(detail.split())[:limit],
              '--corner=' + settings['position'],
              '--scale=' + settings['scale'],
-             '--layout=' + layout],
+             '--layout=' + layout,
+             '--duration-ms=' + str(int(seconds * 1000))],
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
     except OSError as e:
@@ -848,19 +857,68 @@ def main():
     import ctypes
     user32 = ctypes.windll.user32
     vk = KEY_CHOICES[args.key]
+    VK_AGENT = 0x79  # F10 toggles the computer-use agent
+
+    agent_stop = threading.Event()
+    agent_thread = {"thread": None}
+
+    def agent_running():
+        thread = agent_thread["thread"]
+        return thread is not None and thread.is_alive()
+
+    def start_agent():
+        if not deepseek_hosted():
+            print("agent: only available on the DeepSeek endpoint")
+            return
+        settings = load_settings()
+        mode = settings.get("agent", "confirm")
+        agent_key = os.environ.get("DEEPSEEK_API_KEY", "")
+        agent_stop.clear()
+
+        def work():
+            import agent as agent_module
+            try:
+                summary = agent_module.run(
+                    agent_key, model, agent_stop, mode=mode,
+                    base_url=api_base(),
+                    confirm=agent_module.confirm_dialog,
+                    capture=lambda: capture_silent()[0],
+                    log=print)
+                print(f"agent: selesai - {summary}")
+            except Exception as exc:  # network, API, or unexpected shutdown
+                print(f"agent: error - {exc}")
+
+        thread = threading.Thread(target=work, daemon=True)
+        agent_thread["thread"] = thread
+        thread.start()
+        print(f"agent: started ({mode} mode) - F10 again to stop")
+
+    def toggle_agent():
+        if agent_running():
+            agent_stop.set()
+            print("agent: stopping - F10 pressed")
+        else:
+            start_agent()
 
     print(f"Press [{args.key}] to screenshot + ask DeepSeek "
           f"({model}, web grounding {'on' if search_enabled else 'off'}, "
           f"integrity {level or 'unknown'}). "
           f"CapsLock only: A=1 flash through F=6. Sound off. Ctrl+C to stop.")
-    print(f"Written answers are saved to {args.answer_file}")
+    print(f"Press [f10] to toggle computer use (DeepSeek only). "
+          f"Written answers are saved to {args.answer_file}")
     prev_down = False
+    prev_agent_down = False
     try:
         while True:
             if args.stop_file and args.stop_file.exists():
+                agent_stop.set()
                 print("Stopped.")
                 return 0
             time.sleep(POLL_INTERVAL)
+            agent_down = bool(user32.GetAsyncKeyState(VK_AGENT) & 0x8001)
+            if agent_down and not prev_agent_down:
+                toggle_agent()
+            prev_agent_down = agent_down
             key_down = bool(user32.GetAsyncKeyState(vk) & 0x8001)
             alt_down = bool(user32.GetAsyncKeyState(VK_MENU) & 0x8000)
             if not should_capture(key_down, alt_down, prev_down):
@@ -869,6 +927,7 @@ def main():
             prev_down = key_down
             handle_capture(show_popup=True)
     except KeyboardInterrupt:
+        agent_stop.set()
         print("Stopped.")
     return 0
 

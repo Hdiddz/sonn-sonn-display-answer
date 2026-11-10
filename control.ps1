@@ -125,7 +125,7 @@ function Set-EnvValue([string]$name, [string]$value) {
     Set-Content -LiteralPath $envPath -Value $output -Encoding UTF8
 }
 
-$settings = @{ popup = 'on'; position = 'bottom-left'; scale = '100'; thinking = 'high' }
+$settings = @{ popup = 'on'; position = 'bottom-left'; scale = '100'; thinking = 'high'; duration = '2'; agent = 'confirm' }
 if (Test-Path -LiteralPath $settingsPath) {
     $raw = (Get-Content -LiteralPath $settingsPath -Raw).Trim()
     if ($raw -eq '1' -or $raw -eq '2') {
@@ -147,6 +147,8 @@ function Save-Settings {
     $lines += ('position=' + $settings.position)
     $lines += ('scale=' + $settings.scale)
     $lines += ('thinking=' + $settings.thinking)
+    $lines += ('duration=' + $settings.duration)
+    $lines += ('agent=' + $settings.agent)
     Set-Content -LiteralPath $settingsPath -Value $lines
 }
 
@@ -197,6 +199,37 @@ function Read-Scale {
     }
 }
 
+function Read-Duration {
+    $pick = Read-Choice ('seconds 1-30, Enter = ' + $settings.duration)
+    if ($pick -match '^\d+(\.\d+)?$') {
+        $value = [double]$pick
+        if ($value -ge 1 -and $value -le 30) {
+            $settings.duration = $value.ToString([System.Globalization.CultureInfo]::InvariantCulture)
+            Save-Settings
+            Write-Ok ('box stays ' + $settings.duration + 's on screen')
+        } else {
+            Write-Warn 'keep it between 1 and 30 seconds; nothing changed'
+        }
+    } elseif ([string]::IsNullOrWhiteSpace($pick)) {
+        Write-Ok ('box stays ' + $settings.duration + 's')
+    } else {
+        Write-Warn 'not a number; nothing changed'
+    }
+}
+
+function Read-Agent {
+    Write-Host ''
+    Write-Host '     [1] confirm every action' -ForegroundColor DarkGray
+    Write-Host '     [2] full auto' -ForegroundColor DarkGray
+    $pick = Read-Choice ('1-2, Enter = ' + $settings.agent)
+    switch ($pick) {
+        '1' { $settings.agent = 'confirm' }
+        '2' { $settings.agent = 'auto' }
+    }
+    Save-Settings
+    Write-Ok ('agent mode = ' + $settings.agent + '  (F10 starts and stops)')
+}
+
 # ---- is it running? ---------------------------------------------------------
 
 $running = $null
@@ -229,17 +262,20 @@ if ($running) {
         Write-Host ''
         Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
         Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
+        Write-Pair 'duration' ($settings.duration + 's') 'agent' $settings.agent
         Write-Section 'monitor'
         Write-Item '1' 'Stop the monitor'
         Write-Section 'answer box'
         Write-Item2 '2' 'Hide the box' '3' 'Show the box'
         Write-Item2 '4' 'Move the box' '5' 'Resize the box'
-        Write-Section 'brain'
-        Write-Item '6' 'Thinking effort (off / low / high / max)'
+        Write-Section 'display & brain'
+        Write-Item2 '6' 'Box duration' '7' 'Thinking effort'
+        Write-Section 'computer use'
+        Write-Item '8' 'Agent mode (confirm / full auto)'
         Write-Host ''
-        Write-Item '7' 'Close this window'
-        $action = Read-Choice 'choose 1-7, Enter = 7'
-        if ([string]::IsNullOrWhiteSpace($action)) { $action = '7' }
+        Write-Item '9' 'Close this window'
+        $action = Read-Choice 'choose 1-9, Enter = 9'
+        if ([string]::IsNullOrWhiteSpace($action)) { $action = '9' }
         switch ($action) {
             '1' {
                 Set-Content -LiteralPath $stopPath -Value 'stop'
@@ -261,7 +297,9 @@ if ($running) {
             }
             '4' { Read-Position; Start-Sleep -Seconds 1 }
             '5' { Read-Scale; Start-Sleep -Seconds 1 }
-            '6' { Read-Thinking; Start-Sleep -Seconds 1 }
+            '6' { Read-Duration; Start-Sleep -Seconds 1 }
+            '7' { Read-Thinking; Start-Sleep -Seconds 1 }
+            '8' { Read-Agent; Start-Sleep -Seconds 1 }
             default { exit 0 }
         }
     }
@@ -321,23 +359,26 @@ while ($true) {
     Write-Host ''
     Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
     Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
+    Write-Pair 'duration' ($settings.duration + 's') 'agent' $settings.agent
     Write-Pair 'api key' $keyLabel 'model' $model
     Write-Pair 'endpoint' $baseUrl
     Write-Section 'start'
     Write-Item '1' 'Answer box + CapsLock flashes'
     Write-Item '2' 'CapsLock flashes only'
-    Write-Section 'display'
+    Write-Section 'display & brain'
     Write-Item2 '3' 'Popup position' '4' 'Popup size'
-    Write-Item '5' 'Thinking effort (off / low / high / max)'
+    Write-Item2 '5' 'Box duration' '6' 'Thinking effort'
     Write-Section 'connection'
-    Write-Item2 '6' 'API key' '7' 'Model / endpoint'
+    Write-Item2 '7' 'API key' '8' 'Model / endpoint'
+    Write-Section 'computer use  (F10)'
+    Write-Item '9' 'Agent mode (confirm / full auto)'
     Write-Host ''
-    Write-Item '8' 'Exit'
+    Write-Item '0' 'Exit'
     Write-Host ''
-    Write-Host '     press F9 after starting - settings save to .monitor-settings' -ForegroundColor DarkGray
+    Write-Host '     press F9 to answer, F10 to start/stop computer use' -ForegroundColor DarkGray
 
-    $choice = Read-Choice 'choose 1-8'
-    if ([string]::IsNullOrWhiteSpace($choice)) { $choice = '8' }
+    $choice = Read-Choice 'choose 0-9'
+    if ([string]::IsNullOrWhiteSpace($choice)) { $choice = '0' }
 
     $start = $false
     switch ($choice) {
@@ -345,8 +386,10 @@ while ($true) {
         '2' { $settings.popup = 'off'; Save-Settings; $start = $true }
         '3' { Read-Position; Start-Sleep -Seconds 1 }
         '4' { Read-Scale; Start-Sleep -Seconds 1 }
-        '5' { Read-Thinking; Start-Sleep -Seconds 1 }
-        '6' {
+        '5' { Read-Duration; Start-Sleep -Seconds 1 }
+        '6' { Read-Thinking; Start-Sleep -Seconds 1 }
+        '9' { Read-Agent; Start-Sleep -Seconds 1 }
+        '7' {
             if ([Console]::IsInputRedirected) {
                 # A hidden prompt reads the console directly and would block on
                 # piped input, so accept a normal line when input is redirected.
@@ -368,7 +411,7 @@ while ($true) {
             }
             Start-Sleep -Seconds 1
         }
-        '7' {
+        '8' {
             $newModel = Read-Host ('     model [Enter = ' + $model + ']')
             if (-not [string]::IsNullOrWhiteSpace($newModel)) {
                 Set-EnvValue 'DEEPSEEK_MODEL' $newModel.Trim()
