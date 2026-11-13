@@ -47,6 +47,7 @@ DEFAULT_MODEL = "deepseek-flash"
 POLL_INTERVAL = 0.02
 VK_SNAPSHOT = 0x2C
 VK_MENU = 0x12
+VK_CONTROL = 0x11
 KEY_CHOICES = {"printscreen": VK_SNAPSHOT, "f9": 0x78, "f10": 0x79,
                "f11": 0x7A, "pause": 0x13}
 
@@ -564,6 +565,72 @@ def parse_result(text):
     return result
 
 
+def clipboard_text(result):
+    """Plain text to put on the clipboard for one answer."""
+    kind = result.get("question_type")
+    if kind == "multiple_choice":
+        letter = (result.get("answer") or "").strip().upper()
+        options = result.get("options") or []
+        index = result.get("answer_index") or 0
+        if letter and 0 < index <= len(options):
+            return f"{letter}. {options[index - 1]}"
+        return letter
+    if kind == "written":
+        return (result.get("response") or "").strip()
+    return ""
+
+
+def copy_to_clipboard(text, attempts=8):
+    """Put text on the Windows clipboard; True when it landed."""
+    if sys.platform != "win32" or not text:
+        return False
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle_type = ctypes.c_void_p
+    user32.OpenClipboard.argtypes = [wintypes.HWND]
+    user32.OpenClipboard.restype = wintypes.BOOL
+    user32.EmptyClipboard.restype = wintypes.BOOL
+    user32.CloseClipboard.restype = wintypes.BOOL
+    user32.SetClipboardData.argtypes = [wintypes.UINT, handle_type]
+    user32.SetClipboardData.restype = handle_type
+    kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+    kernel32.GlobalAlloc.restype = handle_type
+    kernel32.GlobalLock.argtypes = [handle_type]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalUnlock.argtypes = [handle_type]
+    kernel32.GlobalFree.argtypes = [handle_type]
+
+    payload = text.encode("utf-16-le") + b"\x00\x00"
+    # Another app may hold the clipboard for a moment; retry briefly.
+    for _ in range(attempts):
+        if user32.OpenClipboard(None):
+            break
+        time.sleep(0.05)
+    else:
+        return False
+    try:
+        if not user32.EmptyClipboard():
+            return False
+        handle = kernel32.GlobalAlloc(0x0002, len(payload))  # GMEM_MOVEABLE
+        if not handle:
+            return False
+        pointer = kernel32.GlobalLock(handle)
+        if not pointer:
+            kernel32.GlobalFree(handle)
+            return False
+        ctypes.memmove(pointer, payload, len(payload))
+        kernel32.GlobalUnlock(handle)
+        if not user32.SetClipboardData(13, handle):  # CF_UNICODETEXT
+            kernel32.GlobalFree(handle)
+            return False
+        return True
+    finally:
+        user32.CloseClipboard()
+
+
 def save_result(result, path):
     """Write a dated, readable answer; replace the previous result atomically."""
     path = Path(path)
@@ -739,6 +806,8 @@ def main():
     ap.add_argument("--mute", action="store_true", default=True, help=argparse.SUPPRESS)
     ap.add_argument("--no-popup", action="store_true",
                     help="disable the compact two-second answer popup")
+    ap.add_argument("--copy", action="store_true",
+                    help="copy the answer to the clipboard (also: hold Ctrl with the hotkey)")
     ap.add_argument("--no-search", action="store_true",
                     help="answer from the screenshot only; never call the Search API")
     ap.add_argument("--answer-file", type=Path,
@@ -761,7 +830,7 @@ def main():
         print("ERROR: set DEEPSEEK_API_KEY in .env (see .env.example)")
         return 1
 
-    def handle_capture(show_popup=False):
+    def handle_capture(show_popup=False, copy_answer=False):
         def popup_allowed():
             return show_popup and not args.no_popup and popup_enabled()
 
@@ -817,6 +886,12 @@ def main():
             print(f"          Could not save answer: {e}")
             return failure()
         print(f"          Answer saved -> {args.answer_file}")
+        if copy_answer and not args.check_api:
+            clipboard_value = clipboard_text(result)
+            if clipboard_value and copy_to_clipboard(clipboard_value):
+                print(f"          copied to clipboard: {clipboard_value[:70]!r}")
+            elif clipboard_value:
+                print("          clipboard busy - answer not copied")
         if popup_allowed():
             show_answer_popup(result)
         if n > 0:
@@ -835,7 +910,7 @@ def main():
         return 0
 
     if args.once or args.check_api or args.image:
-        return handle_capture()
+        return handle_capture(copy_answer=args.copy)
 
     level = integrity_level()
     if level in ("low", "untrusted"):
@@ -860,6 +935,7 @@ def main():
           f"integrity {level or 'unknown'}). "
           f"CapsLock only: A=1 flash through F=6. Sound off. Ctrl+C to stop.")
     print(f"Written answers are saved to {args.answer_file}")
+    print(f"Hold Ctrl with the hotkey to copy the answer to the clipboard.")
     prev_down = False
     try:
         while True:
@@ -873,7 +949,8 @@ def main():
                 prev_down = key_down
                 continue
             prev_down = key_down
-            handle_capture(show_popup=True)
+            ctrl_down = bool(user32.GetAsyncKeyState(VK_CONTROL) & 0x8000)
+            handle_capture(show_popup=True, copy_answer=ctrl_down)
     except KeyboardInterrupt:
         print("Stopped.")
     return 0

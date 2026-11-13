@@ -411,6 +411,26 @@ class MonitorTests(unittest.TestCase):
     def test_written_answers_are_asked_to_stay_short(self):
         self.assertIn('short and to the point', monitor.SYSTEM_PROMPT)
 
+    def test_clipboard_text_for_multiple_choice(self):
+        result = {"question_type": "multiple_choice", "answer": "B",
+                  "answer_index": 2, "options": ["2 1/2", "2 3/4", "3 1/4"]}
+        self.assertEqual(monitor.clipboard_text(result), "B. 2 3/4")
+
+    def test_clipboard_text_for_written_answer(self):
+        result = {"question_type": "written", "answer": None,
+                  "response": "  Perizinan terpadu memangkas waktu.  "}
+        self.assertEqual(monitor.clipboard_text(result),
+                         "Perizinan terpadu memangkas waktu.")
+
+    def test_clipboard_text_is_empty_without_an_answer(self):
+        self.assertEqual(monitor.clipboard_text({"question_type": "none"}), "")
+        self.assertEqual(monitor.clipboard_text(
+            {"question_type": "multiple_choice", "answer": None}), "")
+
+    def test_clipboard_text_falls_back_to_the_letter(self):
+        result = {"question_type": "multiple_choice", "answer": "c",
+                  "answer_index": 9, "options": ["one", "two"]}
+        self.assertEqual(monitor.clipboard_text(result), "C")
     def test_popup_duration_comes_from_settings(self):
         result = {"question_type": "multiple_choice", "answer": "A",
                   "options": ["one", "two"]}

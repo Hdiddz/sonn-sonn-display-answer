@@ -12,6 +12,8 @@ di pojok layar.**
 
 - **F9** menangkap layar utama dan mengirimnya ke model vision — tidak ada file
   yang disimpan.
+- **Ctrl+F9** melakukan hal yang sama, lalu **menyalin jawabannya ke clipboard**
+  (mis. `B. 54`), jadi bisa langsung Ctrl+V di mana pun.
 - **CapsLock**: A–F = 1–6 kedipan. Pilihan tanpa huruf mengikuti urutan tampil
   (atas ke bawah, lalu kiri ke kanan).
 - **Kotak jawaban** opsional: 5 posisi sudut, skala 50–200 %, tidak merebut
@@ -52,6 +54,7 @@ py -3 -m venv .venv
 | Aksi | Caranya |
 |---|---|
 | Ambil gambar + jawab | tekan **F9** |
+| Jawab + salin ke clipboard | **Ctrl+F9** |
 | Baca jawaban esai | klik dua kali `open-answer.cmd` |
 | Hentikan monitor | klik dua kali `stop.cmd` |
 | Ubah pengaturan | klik dua kali `sonnsonn.cmd` |
