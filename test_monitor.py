@@ -422,6 +422,11 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(monitor.clipboard_text(result),
                          "Perizinan terpadu memangkas waktu.")
 
+    def test_clipboard_text_keeps_line_breaks_in_essays(self):
+        result = {"question_type": "written", "answer": None,
+                  "response": "a. Perizinan terpadu.\nb. Investor -> Portal."}
+        self.assertEqual(monitor.clipboard_text(result),
+                         "a. Perizinan terpadu.\nb. Investor -> Portal.")
     def test_clipboard_text_is_empty_without_an_answer(self):
         self.assertEqual(monitor.clipboard_text({"question_type": "none"}), "")
         self.assertEqual(monitor.clipboard_text(
