@@ -568,6 +568,11 @@ def parse_result(text):
     return result
 
 
+def essay_signal_required(show_popup, popup_shown, question_type):
+    """Two CapsLock flashes say "essay answered" when the box stays hidden."""
+    return bool(show_popup) and not popup_shown and question_type == "written"
+
+
 def clipboard_text(result):
     """Plain text to put on the clipboard for one answer."""
     kind = result.get("question_type")
@@ -904,7 +909,15 @@ def main():
                 signal_answer(n, use_flash=not args.no_flash, use_sound=not args.mute)
         elif result["question_type"] == "written":
             print("          -> written answer ready (saved to file, no A-F count)")
-            if not args.mute:
+            if essay_signal_required(show_popup, popup_allowed(),
+                                     result["question_type"]):
+                # Box hidden: two CapsLock flashes say "the essay answer is in".
+                print("          -> box hidden, signalling with 2 CapsLock flashes")
+                if not args.no_flash or not args.mute:
+                    time.sleep(FLASH_PRE_PAUSE)
+                    signal_answer(2, use_flash=not args.no_flash,
+                                  use_sound=not args.mute)
+            elif not args.mute:
                 signal_status("written")
         else:
             print("          -> no readable question")

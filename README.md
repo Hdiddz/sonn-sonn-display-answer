@@ -102,8 +102,12 @@ Posisi: `bottom-left`, `bottom-right`, `top-left`, `top-right`, `center`.
 
 ## Jawaban
 
-A = 1 kedip, B = 2, C = 3, D = 4, E = 5, F = 6. Jawaban esai dan status "tidak
-ada soal" memakai nada berbeda (bila suara diaktifkan; build default senyap).
+A = 1 kedip, B = 2, C = 3, D = 4, E = 5, F = 6.
+
+Kalau kotak jawaban sedang disembunyikan (`popup=off`, atau pilih `[2]` di menu
+start), jawaban **esai** tetap diberi sinyal **2 kedipan CapsLock** supaya Anda
+tahu AI sudah selesai menjawab. Saat suara diaktifkan, tiap kedipan disertai
+bunyi pendek; build default senyap.
 
 ## Model dan provider
 

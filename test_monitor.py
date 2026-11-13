@@ -411,6 +411,12 @@ class MonitorTests(unittest.TestCase):
     def test_written_answers_are_asked_to_stay_short(self):
         self.assertIn('short and to the point', monitor.SYSTEM_PROMPT)
 
+    def test_essay_flash_only_when_the_box_is_hidden(self):
+        self.assertTrue(monitor.essay_signal_required(True, False, "written"))
+        self.assertFalse(monitor.essay_signal_required(True, True, "written"))
+        self.assertFalse(monitor.essay_signal_required(False, False, "written"))
+        self.assertFalse(monitor.essay_signal_required(
+            True, False, "multiple_choice"))
     def test_clipboard_text_for_multiple_choice(self):
         result = {"question_type": "multiple_choice", "answer": "B",
                   "answer_index": 2, "options": ["2 1/2", "2 3/4", "3 1/4"]}
