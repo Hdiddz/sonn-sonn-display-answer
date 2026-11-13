@@ -473,7 +473,7 @@ class MonitorTests(unittest.TestCase):
             loaded = monitor.load_settings(settings)
         self.assertEqual(loaded, {'popup': 'off', 'position': 'top-right',
                                   'scale': '150', 'thinking': 'max',
-                                  'duration': '2'})
+                                  'duration': '2', 'copy': 'off'})
 
     def test_thinking_defaults_to_high(self):
         with tempfile.TemporaryDirectory() as folder:

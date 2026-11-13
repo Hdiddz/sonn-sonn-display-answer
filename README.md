@@ -55,6 +55,7 @@ py -3 -m venv .venv
 |---|---|
 | Ambil gambar + jawab | tekan **F9** |
 | Jawab + salin ke clipboard | **Ctrl+F9** |
+| Salin otomatis tiap jawaban | menu [9] -> Auto copy = on |
 | Baca jawaban esai | klik dua kali `open-answer.cmd` |
 | Hentikan monitor | klik dua kali `stop.cmd` |
 | Ubah pengaturan | klik dua kali `sonnsonn.cmd` |
@@ -72,7 +73,7 @@ membatalkan capture.
 
      popup      on              thinking  high
      position   bottom-left     scale     100%
-     duration   2s              hotkey    F9
+     duration   2s              copy      on
      api key    sk-4...e246     model     deepseek-flash
      endpoint   https://api.deepseek.com
 
@@ -84,6 +85,8 @@ membatalkan capture.
      [5]  Box duration          [6]  Thinking effort
    ── CONNECTION ──────────────────────────────────────────
      [7]  API key               [8]  Model / endpoint
+   ── CLIPBOARD ───────────────────────────────────────────
+     [9]  Auto copy every answer (on / off)
      [0]  Exit
 ```
 

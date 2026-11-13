@@ -48,6 +48,8 @@ POLL_INTERVAL = 0.02
 VK_SNAPSHOT = 0x2C
 VK_MENU = 0x12
 VK_CONTROL = 0x11
+VK_LCONTROL = 0xA2
+VK_RCONTROL = 0xA3
 KEY_CHOICES = {"printscreen": VK_SNAPSHOT, "f9": 0x78, "f10": 0x79,
                "f11": 0x7A, "pause": 0x13}
 
@@ -125,6 +127,7 @@ SETTINGS_DEFAULTS = {
     "scale": "100",
     "thinking": "high",
     "duration": "2",
+    "copy": "off",
 }
 
 
@@ -949,13 +952,13 @@ def main():
                 prev_down = key_down
                 continue
             prev_down = key_down
-            ctrl_down = bool(user32.GetAsyncKeyState(VK_CONTROL) & 0x8000)
-            handle_capture(show_popup=True, copy_answer=ctrl_down)
+            ctrl_down = any(user32.GetAsyncKeyState(key) & 0x8000
+                            for key in (VK_CONTROL, VK_LCONTROL, VK_RCONTROL))
+            copy_default = load_settings()["copy"].lower() in ("on", "1", "true")
+            handle_capture(show_popup=True, copy_answer=ctrl_down or copy_default)
     except KeyboardInterrupt:
         print("Stopped.")
     return 0
-
-0
 
 
 if __name__ == "__main__":

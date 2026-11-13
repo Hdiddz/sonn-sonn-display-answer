@@ -125,7 +125,7 @@ function Set-EnvValue([string]$name, [string]$value) {
     Set-Content -LiteralPath $envPath -Value $output -Encoding UTF8
 }
 
-$settings = @{ popup = 'on'; position = 'bottom-left'; scale = '100'; thinking = 'high'; duration = '2' }
+$settings = @{ popup = 'on'; position = 'bottom-left'; scale = '100'; thinking = 'high'; duration = '2'; copy = 'off' }
 if (Test-Path -LiteralPath $settingsPath) {
     $raw = (Get-Content -LiteralPath $settingsPath -Raw).Trim()
     if ($raw -eq '1' -or $raw -eq '2') {
@@ -148,6 +148,7 @@ function Save-Settings {
     $lines += ('scale=' + $settings.scale)
     $lines += ('thinking=' + $settings.thinking)
     $lines += ('duration=' + $settings.duration)
+    $lines += ('copy=' + $settings.copy)
     Set-Content -LiteralPath $settingsPath -Value $lines
 }
 
@@ -216,6 +217,18 @@ function Read-Duration {
     }
 }
 
+function Read-Copy {
+    Write-Host ''
+    Write-Host '     [1] off  - only Ctrl + hotkey copies' -ForegroundColor DarkGray
+    Write-Host '     [2] on   - every answer is copied' -ForegroundColor DarkGray
+    $pick = Read-Choice ('1-2, Enter = ' + $settings.copy)
+    switch ($pick) {
+        '1' { $settings.copy = 'off' }
+        '2' { $settings.copy = 'on' }
+    }
+    Save-Settings
+    Write-Ok ('auto copy = ' + $settings.copy + '   (Ctrl + hotkey always copies)')
+}
 # ---- is it running? ---------------------------------------------------------
 
 $running = $null
@@ -248,7 +261,7 @@ if ($running) {
         Write-Host ''
         Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
         Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
-        Write-Pair 'duration' ($settings.duration + 's')
+        Write-Pair 'duration' ($settings.duration + 's') 'copy' $settings.copy
         Write-Section 'monitor'
         Write-Item '1' 'Stop the monitor'
         Write-Section 'answer box'
@@ -256,10 +269,12 @@ if ($running) {
         Write-Item2 '4' 'Move the box' '5' 'Resize the box'
         Write-Section 'display & brain'
         Write-Item2 '6' 'Box duration' '7' 'Thinking effort'
+        Write-Section 'clipboard'
+        Write-Item '8' 'Auto copy every answer (on / off)'
         Write-Host ''
-        Write-Item '8' 'Close this window'
-        $action = Read-Choice 'choose 1-8, Enter = 8'
-        if ([string]::IsNullOrWhiteSpace($action)) { $action = '8' }
+        Write-Item '9' 'Close this window'
+        $action = Read-Choice 'choose 1-9, Enter = 9'
+        if ([string]::IsNullOrWhiteSpace($action)) { $action = '9' }
         switch ($action) {
             '1' {
                 Set-Content -LiteralPath $stopPath -Value 'stop'
@@ -283,6 +298,7 @@ if ($running) {
             '5' { Read-Scale; Start-Sleep -Seconds 1 }
             '6' { Read-Duration; Start-Sleep -Seconds 1 }
             '7' { Read-Thinking; Start-Sleep -Seconds 1 }
+            '8' { Read-Copy; Start-Sleep -Seconds 1 }
             default { exit 0 }
         }
     }
@@ -342,7 +358,7 @@ while ($true) {
     Write-Host ''
     Write-Pair 'popup' $settings.popup 'thinking' $settings.thinking
     Write-Pair 'position' $settings.position 'scale' ($settings.scale + '%')
-    Write-Pair 'duration' ($settings.duration + 's') 'hotkey' 'F9'
+    Write-Pair 'duration' ($settings.duration + 's') 'copy' $settings.copy
     Write-Pair 'api key' $keyLabel 'model' $model
     Write-Pair 'endpoint' $baseUrl
     Write-Section 'start'
@@ -353,11 +369,14 @@ while ($true) {
     Write-Item2 '5' 'Box duration' '6' 'Thinking effort'
     Write-Section 'connection'
     Write-Item2 '7' 'API key' '8' 'Model / endpoint'
+    Write-Section 'clipboard'
+    Write-Item '9' 'Auto copy every answer (on / off)'
+    Write-Host ''
     Write-Item '0' 'Exit'
     Write-Host ''
     Write-Host '     settings save to .monitor-settings' -ForegroundColor DarkGray
 
-    $choice = Read-Choice 'choose 0-8'
+    $choice = Read-Choice 'choose 0-9'
     if ([string]::IsNullOrWhiteSpace($choice)) { $choice = '0' }
 
     $start = $false
@@ -368,6 +387,7 @@ while ($true) {
         '4' { Read-Scale; Start-Sleep -Seconds 1 }
         '5' { Read-Duration; Start-Sleep -Seconds 1 }
         '6' { Read-Thinking; Start-Sleep -Seconds 1 }
+        '9' { Read-Copy; Start-Sleep -Seconds 1 }
         '7' {
             if ([Console]::IsInputRedirected) {
                 # A hidden prompt reads the console directly and would block on
